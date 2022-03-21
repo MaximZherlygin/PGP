@@ -23,8 +23,8 @@ const int z_on = 2;
 
 // макросы _i, чтобы у нас можно было использовать в индексации -1 и n
 #define _i(i, j, k) (((k) + 1) * (dim[y_on] + 2) * (dim[x_on] + 2) + ((j) + 1) * (dim[x_on] + 2) + (i) + 1)
-#define _idp(i, j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
-#define _idb(i, j) (j * max(dim[x_on], max(dim[y_on], dim[z_on])) + i)
+#define _ip(i, j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
+#define _ib(i, j) (j * max(dim[x_on], max(dim[y_on], dim[z_on])) + i)
 
 int main(int argc, char** argv) {
     ios_base::sync_with_stdio(false);
@@ -32,29 +32,22 @@ int main(int argc, char** argv) {
 
     int dim[3];
     int block[3];
-
-
-    string out_filename; // название файла ввода
-    double eps; // точночть вычислений (эпсиллон)
+    double *values;
+    double *next_values;
+    double *temporary_values;
+    double eps;
     double l[3];
     double h[3];
     double u[6];
-    double u_start; // x, y, z - размер области
-    // x, y, z - переменная в формуле
-    // down up left right front back
-    double *values;
-    double *temporary_values;
-    double *next_values;
-    // data и next - массивы под данные
-    // temp - в каждой итерации их можно менять местами между собой
-    // буфера, а потом буфер посылаем другому процессу (копируем данные через буфер)
+    double u_start;
+    string out_filename;
 
-    MPI_Status status;  // фиктивная status
-    MPI_Init(&argc, &argv); // Инициализация MPI
-    int id, proccess_count;  // id - номер процесса, numproc - количество процессов
-                             // машины, на котором будет наш процесс
-    MPI_Comm_size(MPI_COMM_WORLD, &proccess_count); // Получаем количество процессов
-    MPI_Comm_rank(MPI_COMM_WORLD, &id); // Получаем количество процессов
+    MPI_Status status;
+    MPI_Init(&argc, &argv);
+    int id;
+    int proccess_count;
+    MPI_Comm_size(MPI_COMM_WORLD, &proccess_count);
+    MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     if (id == 0) {
         cin >> block[x_on] >> block[y_on] >> block[z_on];
@@ -77,25 +70,15 @@ int main(int argc, char** argv) {
     h[y_on] = l[y_on] / (block[y_on] * dim[y_on]);
     h[z_on] = l[z_on] / (block[z_on] * dim[z_on]);
 
-    // использовать буферизацию, буферизированный Bsend и буферизированную отправку данных
-    // нам надо определить размер буфера. Определим максимальный размер
     int buffer_size = max(max(dim[x_on], dim[y_on]), dim[z_on]) * max(max(dim[x_on], dim[y_on]), dim[z_on]);
 
-    // принимает кол-во эл-тов, тип эл-тов, коммуникатор и размер буфера, который нам надо
-    // отправить через буферизированный Sendrecv
-
-    // выделяем в памяти соотвтествующее buffer_size
     double* send = (double*)malloc(buffer_size * sizeof(double));
     double* recv = (double*)malloc(buffer_size * sizeof(double));
 
-    // b (0-2) - сетка трёхмерная
     int i_b = id % block[x_on];
     int j_b = (id / block[x_on]) % block[y_on];
     int k_b = id / (block[x_on] * block[y_on]);
 
-    // выделим данные под наши "данные"
-    // n+2 - организовать фиктивные ячейки из методички
-    // (не учитываем границы)
     values = (double*)malloc((dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2) * sizeof(double));
     next_values = (double*)malloc((dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2) * sizeof(double));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
@@ -110,11 +93,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // если у нас будут граничные элементы
-    // то на границах мы задаём то, как было на границах
-
-    // её делаем в начале тк она никогда не меняется
-    // код предназначался для решения нестационарных задач и границы были зависимы от времени
     if (i_b == 0) {
         for (int k = 0; k < dim[z_on]; k++)
             for (int j = 0; j < dim[y_on]; j++) {
@@ -166,122 +144,113 @@ int main(int argc, char** argv) {
     
 
     while (true) {
-        // обмен данными
-        // если индекс нашего потока не крайний
         if (block[x_on] > 1) {
-            // во избежание dead lock-a мы проходимся волной по всему направлению
-            // первый элемент
             if (i_b == 0) {
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        // мы копируем одну границу нашей области в буфер
-                        send[_idb(j, k)] = values[_i(dim[x_on] - 1, j, k)];
+                        send[_ib(j, k)] = values[_i(dim[x_on] - 1, j, k)];
                     }
                 }
-                // и с помощью Sendrecv отправляем буфер процессу по ib+1 вправо
-                // для предотрващения путаницы мы используем id - кто отправляет данные
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b + 1, j_b, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b + 1, j_b, k_b),
-                             _idp(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
+                             _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        values[_i(dim[x_on], j, k)] = recv[_idb(j, k)];
+                        values[_i(dim[x_on], j, k)] = recv[_ib(j, k)];
                     }
                 }
-            } else if (i_b + 1 == block[x_on]) { // последний элемент
+            } else if (i_b + 1 == block[x_on]) {
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        send[_idb(j, k)] = values[_i(0, j, k)];
+                        send[_ib(j, k)] = values[_i(0, j, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b - 1, j_b, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b - 1, j_b, k_b),
-                             _idp(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
+                             _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        values[_i(-1, j, k)] = recv[_idb(j, k)];
+                        values[_i(-1, j, k)] = recv[_ib(j, k)];
                     }
                 }
-            } else { // промежуточный элемент
+            } else {
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        send[_idb(j, k)] = values[_i(dim[x_on] - 1, j, k)];
+                        send[_ib(j, k)] = values[_i(dim[x_on] - 1, j, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b + 1, j_b, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b - 1, j_b, k_b),
-                             _idp(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
+                             _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        values[_i(-1, j, k)] = recv[_idb(j, k)];
-                        send[_idb(j, k)] = values[_i(0, j, k)];
+                        values[_i(-1, j, k)] = recv[_ib(j, k)];
+                        send[_ib(j, k)] = values[_i(0, j, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b - 1, j_b, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b + 1, j_b, k_b),
-                             _idp(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
+                             _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int j = 0; j < dim[y_on]; j++) {
-                        values[_i(dim[x_on], j, k)] = recv[_idb(j, k)];
+                        values[_i(dim[x_on], j, k)] = recv[_ib(j, k)];
                     }
                 }
             }
         }
 
-        // аналогично для остальных
-
         if (block[y_on] > 1) {
             if (j_b == 0) {
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        send[_idb(i, k)] = values[_i(i, dim[y_on] - 1, k)];
+                        send[_ib(i, k)] = values[_i(i, dim[y_on] - 1, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b + 1, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b + 1, k_b),
-                             _idp(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
+                             _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, dim[y_on], k)] = recv[_idb(i, k)];
+                        values[_i(i, dim[y_on], k)] = recv[_ib(i, k)];
                     }
                 }
             }
             else if (j_b + 1 == block[y_on]) {
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        send[_idb(i, k)] = values[_i(i, 0, k)];
+                        send[_ib(i, k)] = values[_i(i, 0, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b - 1, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b - 1, k_b),
-                             _idp(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
+                             _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, -1, k)] = recv[_idb(i, k)];
+                        values[_i(i, -1, k)] = recv[_ib(i, k)];
                     }
                 }
             }
             else {
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        send[_idb(i, k)] = values[_i(i, dim[y_on] - 1, k)];
+                        send[_ib(i, k)] = values[_i(i, dim[y_on] - 1, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b + 1, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b - 1, k_b),
-                             _idp(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
+                             _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, -1, k)] = recv[_idb(i, k)];
-                        send[_idb(i, k)] = values[_i(i, 0, k)];
+                        values[_i(i, -1, k)] = recv[_ib(i, k)];
+                        send[_ib(i, k)] = values[_i(i, 0, k)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b - 1, k_b),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b + 1, k_b),
-                             _idp(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
+                             _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
                 for (int k = 0; k < dim[z_on]; k++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, dim[y_on], k)] = recv[_idb(i, k)];
+                        values[_i(i, dim[y_on], k)] = recv[_ib(i, k)];
                     }
                 }
             }
@@ -291,61 +260,59 @@ int main(int argc, char** argv) {
             if (k_b == 0) {
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        send[_idb(i, j)] = values[_i(i, j, dim[z_on] - 1)];
+                        send[_ib(i, j)] = values[_i(i, j, dim[z_on] - 1)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b + 1),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b + 1),
-                             _idp(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
+                             _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, j, dim[z_on])] = recv[_idb(i, j)];
+                        values[_i(i, j, dim[z_on])] = recv[_ib(i, j)];
                     }
                 }
             }
             else if (k_b + 1 == block[z_on]) {
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        send[_idb(i, j)] = values[_i(i, j, 0)];
+                        send[_ib(i, j)] = values[_i(i, j, 0)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b - 1),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b - 1),
-                             _idp(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
+                             _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, j, -1)] = recv[_idb(i, j)];
+                        values[_i(i, j, -1)] = recv[_ib(i, j)];
                     }
                 }
             }
             else {
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        send[_idb(i, j)] = values[_i(i, j, dim[z_on] - 1)];
+                        send[_ib(i, j)] = values[_i(i, j, dim[z_on] - 1)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b + 1),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b - 1),
-                             _idp(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
+                             _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, j, -1)] = recv[_idb(i, j)];
-                        send[_idb(i, j)] = values[_i(i, j, 0)];
+                        values[_i(i, j, -1)] = recv[_ib(i, j)];
+                        send[_ib(i, j)] = values[_i(i, j, 0)];
                     }
                 }
-                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b - 1),
-                             id, recv, buffer_size, MPI_DOUBLE, _idp(i_b, j_b, k_b + 1),
-                             _idp(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
+                             _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
                 for (int j = 0; j < dim[y_on]; j++) {
                     for (int i = 0; i < dim[x_on]; i++) {
-                        values[_i(i, j, dim[z_on])] = recv[_idb(i, j)];
+                        values[_i(i, j, dim[z_on])] = recv[_ib(i, j)];
                     }
                 }
             }
         }
 
-        // Организуем основной вычислительный цикл
-        // То, ради чего мы написали столько кода
         double diff = 0.0;
         double h2[3];
         h2[x_on] = h[x_on] * h[x_on];
@@ -379,12 +346,6 @@ int main(int argc, char** argv) {
         values = temporary_values;
     }
 
-    // основной цикл завершён
-
-    // Построчный вывод каждого блока
-
-    // Построчный вывод каждого блока
-
     if (id != 0) {
         for (int k = 0; k < dim[z_on]; k++) {
             for (int j = 0; j < dim[y_on]; j++) {
@@ -404,27 +365,27 @@ int main(int argc, char** argv) {
                     for (int j = 0; j < dim[y_on]; j++) {
                         for (int ib = 0; ib < block[x_on]; ++ib) {
 
-                            if (_idp(ib, jb, kb) == 0) {
+                            if (_ip(ib, jb, kb) == 0) {
                                 for (int i = 0; i < dim[x_on]; i++)
                                     recv[i] = next_values[_i(i, j, k)];
 
                             } else {
-                                MPI_Recv(recv, max(dim[x_on], max(dim[y_on], dim[z_on])), MPI_DOUBLE, _idp(ib, jb, kb),
-                                         _idp(ib, jb, kb), MPI_COMM_WORLD, &status);
+                                MPI_Recv(recv, max(dim[x_on], max(dim[y_on], dim[z_on])), MPI_DOUBLE, _ip(ib, jb, kb),
+                                         _ip(ib, jb, kb), MPI_COMM_WORLD, &status);
                             }
 
                             for (int i = 0; i < dim[x_on]; i++)
-                                out_stream << recv[i] << " ";
+                                out_stream << recv[i] << ' ';
 
                             if (ib + 1 == block[x_on]) {
-                                out_stream << "\n";
+                                out_stream << '\n';
                             } else {
-                                out_stream << " ";
+                                out_stream << ' ';
                             }
                         }
                     }
                 }
-                out_stream << "\n";
+                out_stream << '\n';
             }
         }
         out_stream.close();
