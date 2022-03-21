@@ -75,9 +75,9 @@ int main(int argc, char** argv) {
     double* send = (double*)malloc(buffer_size * sizeof(double));
     double* recv = (double*)malloc(buffer_size * sizeof(double));
 
-    int i_b = id % block[x_on];
-    int j_b = (id / block[x_on]) % block[y_on];
-    int k_b = id / (block[x_on] * block[y_on]);
+    int i_b = ((id) % block[x_on]);
+    int j_b = (((id) / block[x_on]) % block[y_on]);
+    int k_b = ((id) / (block[x_on] * block[y_on]));
 
     values = (double*)malloc((dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2) * sizeof(double));
     next_values = (double*)malloc((dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2) * sizeof(double));
@@ -319,9 +319,9 @@ int main(int argc, char** argv) {
         h2[y_on] = h[y_on] * h[y_on];
         h2[z_on] = h[z_on] * h[z_on];
 
-        for (int k = 0; k < dim[z_on]; k++) {
+        for (int i = 0; i < dim[x_on]; i++) {
             for (int j = 0; j < dim[y_on]; j++) {
-                for (int i = 0; i < dim[x_on]; i++) {
+                for (int k = 0; k < dim[z_on]; k++) {
                     next_values[_i(i, j, k)] = 0.5 * ((values[_i(i + 1, j, k)] + values[_i(i - 1, j, k)]) / h2[x_on] +
                                                       (values[_i(i, j + 1, k)] + values[_i(i, j - 1, k)]) / h2[y_on] +
                                                       (values[_i(i, j, k + 1)] + values[_i(i, j, k - 1)]) / h2[z_on]) /
