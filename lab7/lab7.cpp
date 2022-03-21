@@ -10,12 +10,12 @@
 using namespace std;
 
 // направления
-const int down = 0;
-const int up = 1;
-const int left = 2;
-const int right = 3;
-const int front = 4;
-const int back = 5;
+#define down 0
+#define up 1
+#define left 2
+#define right 3
+#define front 4
+#define back 5
 
 const int x_on = 0;
 const int y_on = 1;
