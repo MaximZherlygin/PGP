@@ -24,7 +24,7 @@ const int z_on = 2;
 // макросы _i, чтобы у нас можно было использовать в индексации -1 и n
 #define _i(i, j, k) (((k) + 1) * (dim[y_on] + 2) * (dim[x_on] + 2) + ((j) + 1) * (dim[x_on] + 2) + (i) + 1)
 #define _idp(i, j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
-#define _idb(i, j) (j * buffer_length + i)
+#define _idb(i, j) (j * max(dim[x_on], max(dim[y_on], dim[z_on])) + i)
 
 int main(int argc, char** argv) {
     ios_base::sync_with_stdio(false);
