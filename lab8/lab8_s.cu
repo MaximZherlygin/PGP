@@ -34,7 +34,7 @@ const int z_on = 2;
     } \
 } \
 
-__global__ void send_xy(double* send, double* values, int dimX, int dimY, int k) {
+__global__ void send_xy(double* send, double* values, int dimX, int dimY, int dimZ, int k) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -46,7 +46,7 @@ __global__ void send_xy(double* send, double* values, int dimX, int dimY, int k)
     }
 }
 
-__global__ void send_xz(double* send, double* values, int dimX, int dimZ, int j) {
+__global__ void send_xz(double* send, double* values, int dimX, int dimY, int dimZ, int j) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idz = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -58,7 +58,7 @@ __global__ void send_xz(double* send, double* values, int dimX, int dimZ, int j)
     }
 }
 
-__global__ void send_yz(double* send, double* values, int dimY, int dimZ, int i) {
+__global__ void send_yz(double* send, double* values, int dimX, int dimY, int dimZ, int i) {
     int idy = blockIdx.x * blockDim.x + threadIdx.x;
     int idz = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetY = blockDim.x * gridDim.x;
@@ -71,7 +71,7 @@ __global__ void send_yz(double* send, double* values, int dimY, int dimZ, int i)
 }
 
 
-__global__ void recv_xy(double* recv, double* values, int dimX, int dimY, int k) {
+__global__ void recv_xy(double* recv, double* values, int dimX, int dimY, int dimZ, int k) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -83,7 +83,7 @@ __global__ void recv_xy(double* recv, double* values, int dimX, int dimY, int k)
     }
 }
 
-__global__ void recv_xz(double* recv, double* values, int dimX, int dimZ, int j) {
+__global__ void recv_xz(double* recv, double* values, int dimX, int dimY, int dimZ, int j) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idz = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -95,7 +95,7 @@ __global__ void recv_xz(double* recv, double* values, int dimX, int dimZ, int j)
     }
 }
 
-__global__ void recv_yz(double* recv, double* values, int dimY, int dimZ, int i) {
+__global__ void recv_yz(double* recv, double* values, int dimX, int dimY, int dimZ, int i) {
     int idy = blockIdx.x * blockDim.x + threadIdx.x;
     int idz = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetY = blockDim.x * gridDim.x;
@@ -138,12 +138,9 @@ __global__ void error(double* next, double* values, int dimX, int dimY, int dimZ
     for (i = idx - 1; i <= dimX; i += offsetX) {
         for (j = idy - 1; j <= dimY; j += offsetY) {
             for (k = idz - 1; k <= dimZ; k += offsetZ) {
-                // если значение является граничным
                 if ((i == -1) || (j == -1) || (k == -1) || (i == dimX) || (j == dimY) || (k == dimZ)) {
-                    // обнуляем граничные значения
                     values[_ic(i, j, k)] = 0.0;
-                }
-                else {
+                } else {
                     values[_ic(i, j, k)] = fabs(next[_ic(i, j, k)] - values[_ic(i, j, k)]);
                 }
             }
@@ -309,7 +306,7 @@ int main(int argc, char** argv) {
     while (true) {
         if (block[x_on] > 1) {
             if (i_b == 0) {
-                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[y_on], dim[z_on], dim[x_on] - 1);
+                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on] - 1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -317,11 +314,11 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
                              _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[y_on], dim[z_on], dim[x_on]);
+                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on]);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             } else if (i_b + 1 == block[x_on]) {
-                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[y_on], dim[z_on], 0);
+                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], 0);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -329,11 +326,11 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
                              _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[y_on], dim[z_on], -1);
+                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], -1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             } else {
-                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[y_on], dim[z_on], dim[x_on] - 1);
+                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on] - 1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -341,10 +338,10 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b), 
                              _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[y_on], dim[z_on], -1);
+                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], -1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
-                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[y_on], dim[z_on], 0);
+                send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], 0);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -352,7 +349,7 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b), 
                              _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[y_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[y_on], dim[z_on], dim[x_on]);
+                recv_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on]);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             }
@@ -360,7 +357,7 @@ int main(int argc, char** argv) {
 
         if (block[y_on] > 1) {
             if (j_b == 0) {
-                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[z_on], dim[y_on] - 1);
+                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[y_on] - 1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -368,11 +365,11 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b), 
                              _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[z_on], dim[y_on]);
+                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[y_on]);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             } else if (j_b + 1 == block[y_on]) {
-                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[z_on], 0);
+                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], 0);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -380,11 +377,11 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b), 
                              _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[z_on], -1);
+                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], -1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             } else {
-                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[z_on], dim[y_on] - 1);
+                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[y_on] - 1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
 
@@ -393,10 +390,10 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b), 
                              _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[z_on], -1);
+                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], -1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
-                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[z_on], 0);
+                send_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], 0);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyDeviceToHost));
@@ -404,7 +401,7 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b), 
                              _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[z_on], cudaMemcpyHostToDevice));
-                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[z_on], dim[y_on]);
+                recv_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[y_on]);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             }
@@ -412,7 +409,7 @@ int main(int argc, char** argv) {
 
         if (block[z_on] > 1) {
             if (k_b == 0) {
-                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on] - 1);
+                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[z_on] - 1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyDeviceToHost));
@@ -420,11 +417,11 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
                              _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyHostToDevice));
-                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on]);
+                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[z_on]);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             } else if (k_b + 1 == block[z_on]) {
-                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], 0);
+                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], 0);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyDeviceToHost));
@@ -432,11 +429,11 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
                              _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyHostToDevice));
-                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], -1);
+                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], -1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             } else {
-                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on] - 1);
+                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[z_on] - 1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyDeviceToHost));
@@ -444,10 +441,10 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
                              _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyHostToDevice));
-                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], -1);
+                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], -1);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
-                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], 0);
+                send_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], 0);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
                 CSC(cudaMemcpy(send, dev_send, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyDeviceToHost));
@@ -455,7 +452,7 @@ int main(int argc, char** argv) {
                              id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
                              _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
                 CSC(cudaMemcpy(dev_recv, recv, sizeof(double) * dim[x_on] * dim[y_on], cudaMemcpyHostToDevice));
-                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on]);
+                recv_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_recv, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[z_on]);
                 CSC(cudaGetLastError());
                 CSC(cudaDeviceSynchronize());
             }
@@ -467,7 +464,6 @@ int main(int argc, char** argv) {
         error<<<dim3(8, 8, 8), dim3(32, 4, 4)>>>(dev_next_values, dev_values, dim[x_on], dim[y_on], dim[z_on]);
         CSC(cudaGetLastError());
 
-        //воспользуемся указателями thrust для упрощения работы с данными
         thrust::device_ptr<double> p_values = thrust::device_pointer_cast(dev_values);
         thrust::device_ptr<double> p_max_diff = thrust::max_element(p_values, p_values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2));
         double diff = *p_max_diff;
@@ -481,22 +477,15 @@ int main(int argc, char** argv) {
             break;
         }
 
-        if (id == 0) {
-            fprintf(stderr, "localMax = %lf\n", localMax);
-            fflush(stderr);
-        }
-
         temporary_values = dev_next_values;
         dev_next_values = dev_values;
         dev_values = temporary_values;
     }
 
-    // основной цикл завершён
-
     CSC(cudaMemcpy(values, dev_values, sizeof(double) * (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2), cudaMemcpyDeviceToHost));
     CSC(cudaMemcpy(next_values, dev_next_values, sizeof(double) * (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2), cudaMemcpyDeviceToHost));
 
-    // очищаем память от ненужных данных
+
     CSC(cudaFree(dev_values));
     CSC(cudaFree(dev_next_values));
     CSC(cudaFree(dev_send));
