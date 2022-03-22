@@ -509,7 +509,7 @@ int main(int argc, char** argv) {
     }
 
     int size[3];
-    int beg[3]
+    int beg[3];
     int file_size[3];
     int file_beg[3];
     MPI_Datatype repr_type;
