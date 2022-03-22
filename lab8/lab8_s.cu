@@ -496,12 +496,12 @@ int main(int argc, char** argv) {
         for (j = 0; j < dim[y_on]; j++) {
             int len_new_symbol;
             for (i = 0; i < dim[x_on] - 1; i++) {
-                len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e", values[_i(i, j, k)]);
+                len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e", next_values[_i(i, j, k)]);
                 if (len_new_symbol < new_symbol_size) {
                     buff[_i(i, j, k) * new_symbol_size + len_new_symbol] = ' ';
                 }
             }
-            len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e\n", values[_i(i, j, k)]);
+            len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e\n", next_values[_i(i, j, k)]);
             if(len_new_symbol < new_symbol_size){
                 buff[_i(i, j, k) * new_symbol_size + len_new_symbol] = ' ';
             }
