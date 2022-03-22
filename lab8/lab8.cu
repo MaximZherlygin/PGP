@@ -59,10 +59,10 @@ __device__ int _inp(int i, int j, int k) {
 }
 
 __device__ int _inb(int i, int j) {
-    return (j * max(dim[0], max(dim[1], dim[2])) + i)
+    return (j * max(g_dimensions[0], max(g_dimensions[1], g_dimensions[2])) + i);
 }
 
-__global__ void copy_edge_xy(double* send_edge_xy, double recv_edge_xy, double* values, int k, int k2 = 0) {
+__global__ void copy_edge_xy(double* send_edge_xy, double* recv_edge_xy, double* values, int k, int k2 = 0) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -90,7 +90,7 @@ __global__ void copy_edge_xy(double* send_edge_xy, double recv_edge_xy, double* 
     }
 }
 
-__global__ void copy_edge_xz(double* send_edge_xz, double recv_edge_xz, double* values, int j, int j2 = 0) {
+__global__ void copy_edge_xz(double* send_edge_xz, double* recv_edge_xz, double* values, int j, int j2 = 0) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -118,7 +118,7 @@ __global__ void copy_edge_xz(double* send_edge_xz, double recv_edge_xz, double* 
     }
 }
 
-__global__ void copy_edge_yz(double* send_edge_yz, double recv_edge_yz, double* values, int i, int i2 = 0) {
+__global__ void copy_edge_yz(double* send_edge_yz, double* recv_edge_yz, double* values, int i, int i2 = 0) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -178,7 +178,7 @@ __global__ void error(double* values, double* next_values, double* diff) {
     for (i = idx - 1; i < g_dimensions[0] + 1; i += offsetX) {
         for (j = idy - 1; j < g_dimensions[1] + 1; j += offsetY) {
             for (k = idz - 1; k < g_dimensions[2] + 1; k += offsetZ) {
-                diff[_ind(i, j, k)] = (i != -1 && j != -1 && k != -1 && i != nx && j != ny && k != nz) * abs(next_values[_ind(i, j, k)] - values[_ind(i, j, k)]);
+                diff[_ind(i, j, k)] = (i != -1 && j != -1 && k != -1 && i != g_dimensions[0] && j != g_dimensions[1] && k != g_dimensions[2]) * abs(next_values[_ind(i, j, k)] - values[_ind(i, j, k)]);
             }
         }
     }
@@ -233,14 +233,14 @@ int main(int argc, char** argv) {
     int buffer_size = max(max(dim[x_on], dim[y_on]), dim[z_on]) * max(max(dim[x_on], dim[y_on]), dim[z_on]);
 
     double* gpu_values;
-    CSC(cudaMalloc(&gpu_values, (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2) * sizeof(double)))
+    CSC(cudaMalloc(&gpu_values, sizeof(double) * (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2)))
     double* gpu_next_values;
-    CSC(cudaMalloc(&gpu_next_values, (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2) * sizeof(double)))
-    double* gpu_send_edge_xy, gpu_send_edge_xz, gpu_send_edge_yz;
+    CSC(cudaMalloc(&gpu_next_values, sizeof(double) * (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2)))
+    double* gpu_send_edge_xy, *gpu_send_edge_xz, *gpu_send_edge_yz;
     CSC(cudaMalloc(&gpu_send_edge_xy, buffer_size * sizeof(double)))
     CSC(cudaMalloc(&gpu_send_edge_xz, buffer_size * sizeof(double)))
     CSC(cudaMalloc(&gpu_send_edge_yz, buffer_size * sizeof(double)))
-    double* gpu_recv_edge_xy, gpu_recv_edge_xz, gpu_recv_edge_yz;
+    double* gpu_recv_edge_xy, *gpu_recv_edge_xz, *gpu_recv_edge_yz;
     CSC(cudaMalloc(&gpu_recv_edge_xy, buffer_size * sizeof(double)))
     CSC(cudaMalloc(&gpu_recv_edge_xz, buffer_size * sizeof(double)))
     CSC(cudaMalloc(&gpu_recv_edge_yz, buffer_size * sizeof(double)))
@@ -256,7 +256,7 @@ int main(int argc, char** argv) {
     next_values = (double*)malloc((dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2) * sizeof(double));
 
     CSC(cudaMemcpy(gpu_send_edge_xy, send_edge_xy, sizeof(double) * buffer_size, cudaMemcpyHostToDevice))
-    CSC(cudaMemcpy(gpu_send_edge_xz, senc_edge_xz, sizeof(double) * buffer_size, cudaMemcpyHostToDevice))
+    CSC(cudaMemcpy(gpu_send_edge_xz, send_edge_xz, sizeof(double) * buffer_size, cudaMemcpyHostToDevice))
     CSC(cudaMemcpy(gpu_send_edge_yz, send_edge_yz, sizeof(double) * buffer_size, cudaMemcpyHostToDevice))
     CSC(cudaMemcpy(gpu_recv_edge_xy, recv_edge_xy, sizeof(double) * buffer_size, cudaMemcpyHostToDevice))
     CSC(cudaMemcpy(gpu_recv_edge_xz, recv_edge_xz, sizeof(double) * buffer_size, cudaMemcpyHostToDevice))
@@ -508,10 +508,10 @@ int main(int argc, char** argv) {
     char* buff = new char[buff_size * new_symbol_size];
     memset(buff, (char)' ', buff_size * new_symbol_size * sizeof(char));
 
-    for (k = 0; k < dim[z_on]; k++) {
-        for (j = 0; j < dim[y_on]; j++) {
+    for (int k = 0; k < dim[z_on]; k++) {
+        for (int j = 0; j < dim[y_on]; j++) {
             int len_new_symbol;
-            for (i = 0; i < dim[x_on] - 1; i++) {
+            for (int i = 0; i < dim[x_on] - 1; i++) {
                 len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e", values[_i(i, j, k)]);
                 if (len_new_symbol < new_symbol_size) {
                     buff[_i(i, j, k) * new_symbol_size + len_new_symbol] = ' ';
@@ -527,7 +527,7 @@ int main(int argc, char** argv) {
     MPI_Datatype new_representation;
     MPI_Datatype memtype;
     MPI_Datatype filetype;
-    int sizes[NDIM], starts[NDIM], f_sizes[NDIM], f_starts[NDIM];
+    int sizes[3], starts[3], f_sizes[3], f_starts[3];
 
     MPI_Type_contiguous(new_symbol_size, MPI_CHAR, &new_representation);
     MPI_Type_commit(&new_representation);
@@ -539,9 +539,9 @@ int main(int argc, char** argv) {
     starts[x_on] = starts[y_on] = starts[z_on] = 1;
 
     // Sizes for filetype
-    f_sizes[x_on] = dim[x_on] * blocks[x_on];
-    f_sizes[y_on] = dim[y_on] * blocks[y_on];
-    f_sizes[z_on] = dim[z_on] * blocks[z_on];
+    f_sizes[x_on] = dim[x_on] * block[x_on];
+    f_sizes[y_on] = dim[y_on] * block[y_on];
+    f_sizes[z_on] = dim[z_on] * block[z_on];
 
     f_starts[x_on] = dim[x_on] * i_b;
     f_starts[y_on] = dim[y_on] * j_b;
@@ -557,8 +557,8 @@ int main(int argc, char** argv) {
 
     // Create and open file
     MPI_File fp;
-    MPI_File_delete(filename.c_str(), MPI_INFO_NULL);
-    MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fp);
+    MPI_File_delete(out_filename.c_str(), MPI_INFO_NULL);
+    MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fp);
 
     MPI_File_set_view(fp, 0, MPI_CHAR, filetype, "native", MPI_INFO_NULL);
     MPI_File_write_all(fp, buff, 1, memtype, MPI_STATUS_IGNORE);
@@ -567,9 +567,14 @@ int main(int argc, char** argv) {
 
 
     MPI_Finalize();
-    free(next_values);
-    free(send);
+    free(buff);
     free(values);
-    free(recv);
+    free(next_values);
+    free(send_edge_xy);
+    free(send_edge_xz);
+    free(send_edge_yz);
+    free(recv_edge_xy);
+    free(recv_edge_xz);
+    free(recv_edge_yz);
     return 0;
 }
