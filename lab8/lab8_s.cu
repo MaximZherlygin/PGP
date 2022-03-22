@@ -272,38 +272,32 @@ int main(int argc, char** argv) {
     CSC(cudaMemcpy(dev_next_values, next_values, sizeof(double) * (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2), cudaMemcpyHostToDevice));
     CSC(cudaMemcpy(dev_values, values, sizeof(double) * (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2), cudaMemcpyHostToDevice));
 
-    // ЕСЛИ НЕ РАБОТАЕТ - ЗАСУНУТЬ В WHILE
-    if (i_b == 0) {
-        bord_in_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], -1, u[left]);
-        CSC(cudaDeviceSynchronize());
-    }
-
-    if (j_b == 0) {
-        bord_in_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], -1, u[front]);
-        CSC(cudaDeviceSynchronize());
-    }
-
-    if (k_b == 0) {
-        bord_in_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], -1, u[down]);
-        CSC(cudaDeviceSynchronize());
-    }
-
-    if ((i_b + 1) == block[x_on]) {
-        bord_in_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on], u[right]);
-        CSC(cudaDeviceSynchronize());
-    }
-
-    if ((j_b + 1) == block[y_on]) {
-        bord_in_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], dim[y_on], u[back]);
-        CSC(cudaDeviceSynchronize());
-    }
-
-    if ((k_b + 1) == block[z_on]) {
-        bord_in_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], dim[z_on], u[up]);
-        CSC(cudaDeviceSynchronize());
-    }
-
     while (true) {
+        if (i_b == 0) {
+            bord_in_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], -1, u[left]);
+            CSC(cudaDeviceSynchronize());
+        }
+        if (j_b == 0) {
+            bord_in_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], -1, u[front]);
+            CSC(cudaDeviceSynchronize());
+        }
+        if (k_b == 0) {
+            bord_in_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], -1, u[down]);
+            CSC(cudaDeviceSynchronize());
+        }
+        if ((i_b + 1) == block[x_on]) {
+            bord_in_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on], u[right]);
+            CSC(cudaDeviceSynchronize());
+        }
+        if ((j_b + 1) == block[y_on]) {
+            bord_in_xz<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], dim[y_on], u[back]);
+            CSC(cudaDeviceSynchronize());
+        }
+        if ((k_b + 1) == block[z_on]) {
+            bord_in_xy<<<dim3(32, 32), dim3(32, 32)>>>(dev_values, dim[x_on], dim[y_on], dim[z_on], dim[z_on], u[up]);
+            CSC(cudaDeviceSynchronize());
+        }
+
         if (block[x_on] > 1) {
             if (i_b == 0) {
                 send_yz<<<dim3(32, 32), dim3(32, 32)>>>(dev_send, dev_values, dim[x_on], dim[y_on], dim[z_on], dim[x_on] - 1);
