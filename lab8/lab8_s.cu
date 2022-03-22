@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
     double h[3];
     double u[6];
     double u_start;
-    char out_filename[1024];
+    string out_filename;
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
@@ -247,7 +247,10 @@ int main(int argc, char** argv) {
     MPI_Bcast(l, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(u, 6, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&u_start, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(out_filename, 1024, MPI_CHAR, 0, MPI_COMM_WORLD);
+    int out_filename_size = out_filename.size();
+    MPI_Bcast(&out_filename_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    out_filename.resize(out_filename_size);
+    MPI_Bcast((char*) out_filename.c_str(), out_filename_size, MPI_CHAR, 0, MPI_COMM_WORLD);
 
     h[x_on] = l[x_on] / (block[x_on] * dim[x_on]);
     h[y_on] = l[y_on] / (block[y_on] * dim[y_on]);
@@ -567,15 +570,11 @@ int main(int argc, char** argv) {
     MPI_File_write_all(fp, buff, 1, memtype, MPI_STATUS_IGNORE);
 
     MPI_File_close(&fp);
+    MPI_Finalize();
 
-    // очищаем память
-    free(buffer_char);
+    free(values);
+    free(next_values);
     free(sizes);
-    free(offsets);
     free(send);
     free(recv);
-    free(next_values);
-    free(values);
-
-    MPI_Finalize(); // завершаем MPI
 }
