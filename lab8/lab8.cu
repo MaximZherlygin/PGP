@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
 
 
     while (true) {
-        if (block[x_on]) {
+        if (block[x_on] > 1) {
             if (i_b == 0) {
                 copy_edge_yz<<<gblocks, threads>>>(gpu_send_edge_yz, NULL, gpu_values, dim[x_on] - 1);
                 CSC(cudaGetLastError());
@@ -374,7 +374,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (block[y_on]) {
+        if (block[y_on] > 1) {
             if (j_b == 0) {
                 copy_edge_xz<<<gblocks, threads>>>(gpu_send_edge_xz, NULL, gpu_values, dim[y_on] - 1);
                 CSC(cudaGetLastError());
@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (block[z_on]) {
+        if (block[z_on] > 1) {
             if (k_b == 0) {
                 copy_edge_xy<<<gblocks, threads>>>(gpu_send_edge_xy, NULL, gpu_values, dim[z_on] - 1);
                 CSC(cudaGetLastError());
@@ -504,7 +504,6 @@ int main(int argc, char** argv) {
     int buff_size = (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2);
     int new_symbol_size = 14;
 
-    // Allocate mem
     char* buff = new char[buff_size * new_symbol_size];
     memset(buff, (char)' ', buff_size * new_symbol_size * sizeof(char));
 
@@ -533,13 +532,11 @@ int main(int argc, char** argv) {
     MPI_Type_contiguous(new_symbol_size, MPI_CHAR, &new_representation);
     MPI_Type_commit(&new_representation);
 
-    // Sizes for memtype
     sizes[x_on] = dim[x_on] + 2;
     sizes[y_on] = dim[y_on] + 2;
     sizes[z_on] = dim[z_on] + 2;
     starts[x_on] = starts[y_on] = starts[z_on] = 1;
 
-    // Sizes for filetype
     f_sizes[x_on] = dim[x_on] * block[x_on];
     f_sizes[y_on] = dim[y_on] * block[y_on];
     f_sizes[z_on] = dim[z_on] * block[z_on];
@@ -548,15 +545,11 @@ int main(int argc, char** argv) {
     f_starts[y_on] = dim[y_on] * j_b;
     f_starts[z_on] = dim[z_on] * k_b;
 
-    // Writting types
-    // Memtype
     MPI_Type_create_subarray(3, sizes, dim, starts, MPI_ORDER_FORTRAN, new_representation, &memtype);
     MPI_Type_commit(&memtype);
-    // Filetype
     MPI_Type_create_subarray(3, f_sizes, dim, f_starts, MPI_ORDER_FORTRAN, new_representation, &filetype);
     MPI_Type_commit(&filetype);
 
-    // Create and open file
     MPI_File fp;
     MPI_File_delete(out_filename.c_str(), MPI_INFO_NULL);
     MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fp);
