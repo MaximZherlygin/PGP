@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
 
 
     while (true) {
-        if (block[x_on] > 1) {
+        if (block[x_on]) {
             if (i_b == 0) {
                 copy_edge_yz<<<gblocks, threads>>>(gpu_send_edge_yz, NULL, gpu_values, dim[x_on] - 1);
                 CSC(cudaGetLastError());
@@ -374,7 +374,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (block[y_on] > 1) {
+        if (block[y_on]) {
             if (j_b == 0) {
                 copy_edge_xz<<<gblocks, threads>>>(gpu_send_edge_xz, NULL, gpu_values, dim[y_on] - 1);
                 CSC(cudaGetLastError());
@@ -416,7 +416,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (block[z_on] > 1) {
+        if (block[z_on]) {
             if (k_b == 0) {
                 copy_edge_xy<<<gblocks, threads>>>(gpu_send_edge_xy, NULL, gpu_values, dim[z_on] - 1);
                 CSC(cudaGetLastError());
