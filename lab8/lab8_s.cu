@@ -574,7 +574,6 @@ int main(int argc, char** argv) {
 
     free(values);
     free(next_values);
-    free(sizes);
     free(send);
     free(recv);
 }
