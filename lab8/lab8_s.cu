@@ -485,63 +485,64 @@ int main(int argc, char** argv) {
     CSC(cudaFree(dev_send));
     CSC(cudaFree(dev_recv));
 
-    int buff_size = (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2);
-    int new_symbol_size = 14;
+    int char_len = 14;
+    int buff_len = (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2);
 
-    char* buff = new char[buff_size * new_symbol_size];
-    memset(buff, (char)' ', buff_size * new_symbol_size * sizeof(char));
+    char* container = new char[char_len * buff_len];
+    memset(container, (char)' ', char_len * buff_len * sizeof(char));
 
     int i, j, k;
     for (k = 0; k < dim[z_on]; k++) {
         for (j = 0; j < dim[y_on]; j++) {
             int len_new_symbol;
             for (i = 0; i < dim[x_on] - 1; i++) {
-                len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e", next_values[_i(i, j, k)]);
-                if (len_new_symbol < new_symbol_size) {
-                    buff[_i(i, j, k) * new_symbol_size + len_new_symbol] = ' ';
+                len_new_symbol = sprintf(&container[_i(i, j, k) * char_len], "%.6e", next_values[_i(i, j, k)]);
+                if (char_len > len_new_symbol) {
+                    container[_i(i, j, k) * char_len + len_new_symbol] = ' ';
                 }
             }
-            len_new_symbol = sprintf(&buff[_i(i, j, k) * new_symbol_size], "%.6e\n", next_values[_i(i, j, k)]);
-            if(len_new_symbol < new_symbol_size){
-                buff[_i(i, j, k) * new_symbol_size + len_new_symbol] = ' ';
+            len_new_symbol = sprintf(&container[_i(i, j, k) * char_len], "%.6e\n", next_values[_i(i, j, k)]);
+            if (char_len > len_new_symbol) {
+                container[_i(i, j, k) * char_len + len_new_symbol] = ' ';
             }
         }
     }
 
-    MPI_Datatype new_representation;
-    MPI_Datatype memtype;
-    MPI_Datatype filetype;
-    int sizes[3], starts[3], f_sizes[3], f_starts[3];
+    int size[3];
+    int beg[3]
+    int file_size[3];
+    int file_beg[3];
+    MPI_Datatype repr_type;
+    MPI_Datatype memory_type;
+    MPI_Datatype file_type;
 
-    MPI_Type_contiguous(new_symbol_size, MPI_CHAR, &new_representation);
-    MPI_Type_commit(&new_representation);
+    MPI_Type_contiguous(char_len, MPI_CHAR, &repr_type);
+    MPI_Type_commit(&repr_type);
 
-    sizes[x_on] = dim[x_on] + 2;
-    sizes[y_on] = dim[y_on] + 2;
-    sizes[z_on] = dim[z_on] + 2;
-    starts[x_on] = starts[y_on] = starts[z_on] = 1;
+    beg[x_on] = 1;
+    beg[y_on] = 1;
+    beg[z_on] = 1;
+    file_beg[x_on] = dim[x_on] * i_b;
+    file_beg[y_on] = dim[y_on] * j_b;
+    file_beg[z_on] = dim[z_on] * k_b;
+    size[x_on] = dim[x_on] + 2;
+    size[y_on] = dim[y_on] + 2;
+    size[z_on] = dim[z_on] + 2;
+    file_size[x_on] = dim[x_on] * block[x_on];
+    file_size[y_on] = dim[y_on] * block[y_on];
+    file_size[z_on] = dim[z_on] * block[z_on];
 
-    f_sizes[x_on] = dim[x_on] * block[x_on];
-    f_sizes[y_on] = dim[y_on] * block[y_on];
-    f_sizes[z_on] = dim[z_on] * block[z_on];
+    MPI_Type_create_subarray(3, size, dim, beg, MPI_ORDER_FORTRAN, repr_type, &memory_type);
+    MPI_Type_commit(&memory_type);
+    MPI_Type_create_subarray(3, file_size, dim, file_beg, MPI_ORDER_FORTRAN, repr_type, &file_type);
+    MPI_Type_commit(&file_type);
 
-    f_starts[x_on] = dim[x_on] * i_b;
-    f_starts[y_on] = dim[y_on] * j_b;
-    f_starts[z_on] = dim[z_on] * k_b;
-
-    MPI_Type_create_subarray(3, sizes, dim, starts, MPI_ORDER_FORTRAN, new_representation, &memtype);
-    MPI_Type_commit(&memtype);
-    MPI_Type_create_subarray(3, f_sizes, dim, f_starts, MPI_ORDER_FORTRAN, new_representation, &filetype);
-    MPI_Type_commit(&filetype);
-
-    MPI_File fp;
+    MPI_File file;
     MPI_File_delete(out_filename.c_str(), MPI_INFO_NULL);
-    MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fp);
-
-    MPI_File_set_view(fp, 0, MPI_CHAR, filetype, "native", MPI_INFO_NULL);
-    MPI_File_write_all(fp, buff, 1, memtype, MPI_STATUS_IGNORE);
-
-    MPI_File_close(&fp);
+    MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &file);
+    MPI_File_set_view(file, 0, MPI_CHAR, file_type, "native", MPI_INFO_NULL);
+    MPI_File_write_all(file, container, 1, memory_type, MPI_STATUS_IGNORE);
+    MPI_File_close(&file);
     MPI_Finalize();
 
     free(values);
