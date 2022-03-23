@@ -25,6 +25,7 @@ const int z_on = 2;
 
 #define _i(i, j, k) (((k) + 1) * (dim[y_on] + 2) * (dim[x_on] + 2) + ((j) + 1) * (dim[x_on] + 2) + (i) + 1)
 #define _ip(i, j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
+#define _ib(i, j) (j * max(dim[x_on], max(dim[y_on], dim[z_on])) + i)
 
 int main(int argc, char** argv) {
     ios_base::sync_with_stdio(false);
