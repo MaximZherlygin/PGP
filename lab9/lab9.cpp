@@ -232,12 +232,12 @@ int main(int argc, char** argv) {
         for (k = 0; k < dim[z_on]; ++k) {
             for (j = 0; j < dim[y_on]; ++j) {
                 for (i = 0; i < dim[x_on]; ++i) {
-                    double next_values[_i(i, j, k)] = 0.5 * ((values[_i(i + 1, j, k)] + values[_i(i - 1, j, k)]) / (h[x_on] * h[x_on]) +
-                                                            (values[_i(i, j + 1, k)] + values[_i(i, j - 1, k)]) / (h[y_on] * h[y_on]) +
-                                                            (values[_i(i, j, k + 1)] + values[_i(i, j, k - 1)]) / (h[z_on] * h[z_on])) /
-                                                            (1 / (h[x_on] * h[x_on]) + 1 / (h[y_on] * h[y_on]) + 1 / (h[z_on] * h[z_on]));
+                    next_values[_i(i, j, k)] = 0.5 * ((values[_i(i + 1, j, k)] + values[_i(i - 1, j, k)]) / (h[x_on] * h[x_on]) +
+                                                     (values[_i(i, j + 1, k)] + values[_i(i, j - 1, k)]) / (h[y_on] * h[y_on]) +
+                                                     (values[_i(i, j, k + 1)] + values[_i(i, j, k - 1)]) / (h[z_on] * h[z_on])) /
+                                                     (1 / (h[x_on] * h[x_on]) + 1 / (h[y_on] * h[y_on]) + 1 / (h[z_on] * h[z_on]));
 
-                    diff = max(diff, abs(next_values[_i(i, j, k)] - values[_i(i, j, k)]));
+                    diff = max(abs(next_values[_i(i, j, k)] - values[_i(i, j, k)]), diff);
                 }
             }
         }
