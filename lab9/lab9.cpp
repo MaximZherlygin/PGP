@@ -85,7 +85,6 @@ int main(int argc, char** argv) {
     next_values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
 
-    // вычисляем размеры блоков и смещения каждого блока
     int dimXY[1];
     dimXY[0] = dim[y_on];
     int dimXZ[1];
@@ -95,18 +94,6 @@ int main(int argc, char** argv) {
     int begin[1];
     begin[0] = 0;
 
-//    int* offsetXY = (int*)malloc(sizeof(int) * dim[y_on]);
-//    int* offsetXZ = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
-//    int* offsetYZ = (int*)malloc(sizeof(int) * dim[z_on]);
-
-    // Плоскость xy
-//    int idx = dim[x_on] + 3;
-//    for (int i = 0; i < dim[y_on]; ++i) {
-//        offsetXY[i] = idx;
-//        idx += dim[x_on] + 2;
-//        dimXY[i] = dim[x_on];
-//    }
-
     MPI_Datatype r_type;
     MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
     MPI_Type_commit(&r_type);
@@ -114,43 +101,13 @@ int main(int argc, char** argv) {
     MPI_Type_create_subarray(1, dimXY, dimXY, begin, MPI_ORDER_FORTRAN, r_type, &edge_xy);
     MPI_Type_commit(&edge_xy);
 
-//    MPI_Type_indexed(dim[y_on], dimXY, offsetXY, MPI_DOUBLE, &edge_xy);
-//    MPI_Type_commit(&edge_xy);
-
-//    // Плоскость yz
-//    int idy = (dim[x_on] + 2) * (dim[y_on] + 2) + 1;
-//    for (int i = 0; i < dim[z_on]; ++i) {
-//        offsetYZ[i] = idy;
-//        idy += (dim[x_on] + 2) * (dim[y_on] + 2);
-//        dimYZ[i] = dim[x_on];
-//    }
-
     MPI_Type_create_subarray(1, dimYZ, dimYZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_yz);
     MPI_Type_commit(&edge_yz);
-    // создаём новый тип функции с помощью type_indexed
-//    MPI_Type_indexed(dim[z_on], dimYZ, offsetYZ, MPI_DOUBLE, &edge_yz);
-//    MPI_Type_commit(&edge_yz); //Регистрируем его в mpi
-
-    // Плоскость zx
-//    int idz = (dim[x_on] + 2) * (dim[y_on] + 2) + dim[x_on] + 2;
-//    for (int k = 0; k < dim[z_on]; ++k) {
-//        for (int j = 0; j < dim[y_on]; ++j) {
-//            offsetXZ[k * dim[y_on] + j] = idz;
-//            idz += (dim[x_on] + 2);
-//            dimXZ[k * dim[y_on] + j] = 1;
-//        }
-//        idz += (dim[x_on] + 2) * 2;
-//    }
 
     MPI_Type_create_subarray(1, dimXZ, dimXZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_xz);
     MPI_Type_commit(&edge_xz);
-    // создаём новый тип функции с помощью type_indexed
-//    MPI_Type_indexed(dim[y_on] * dim[z_on], dimXZ, offsetXZ, MPI_DOUBLE, &edge_xz);
-//    MPI_Type_commit(&edge_xz); //Регистрируем его в mpi
 
-    // очищаем память от ненужных данных
-
-    for (int k = 0; k <= dim[z_on]; k++) {					// Инициализация блока
+    for (int k = 0; k <= dim[z_on]; k++) {
         for (int j = 0; j <= dim[y_on]; j++) {
             for (int i = 0; i <= dim[x_on]; i++) {
                 values[_i(i, j, k)] = u_start;
@@ -162,126 +119,131 @@ int main(int argc, char** argv) {
     int j;
     int k;
     if (i_b == 0) {
-#pragma omp parallel for private(i, j, k) shared(values, next_values)
+    #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
             for (j = 0; j < dim[y_on]; ++j) {
-                values[_i(-1, j, k)] = u[left];
                 next_values[_i(-1, j, k)] = u[left];
+                values[_i(-1, j, k)] = u[left];
             }
     }
-
     if (j_b == 0) {
-#pragma omp parallel for private(i, j, k) shared(values, next_values)
+    #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
             for (i = 0; i < dim[x_on]; ++i) {
-                values[_i(i, -1, k)] = u[front];
                 next_values[_i(i, -1, k)] = u[front];
+                values[_i(i, -1, k)] = u[front];
             }
     }
-
     if (k_b == 0) {
-#pragma omp parallel for private(i, j, k) shared(values, next_values)
+    #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (j = 0; j < dim[y_on]; ++j)
             for (i = 0; i < dim[x_on]; ++i) {
-                values[_i(i, j, -1)] = u[down];
                 next_values[_i(i, j, -1)] = u[down];
+                values[_i(i, j, -1)] = u[down];
             }
     }
-
     if ((i_b + 1) == block[x_on]) {
-#pragma omp parallel for private(i, j, k) shared(values, next_values)
+    #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
             for (j = 0; j < dim[y_on]; ++j) {
-                values[_i(dim[0], j, k)] = u[right];
                 next_values[_i(dim[0], j, k)] = u[right];
+                values[_i(dim[0], j, k)] = u[right];
             }
     }
-
     if ((j_b + 1) == block[y_on]) {
-#pragma omp parallel for private(i, j, k) shared(values, next_values)
+    #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
             for (i = 0; i < dim[x_on]; ++i) {
-                values[_i(i, dim[1], k)] = u[back];
                 next_values[_i(i, dim[1], k)] = u[back];
+                values[_i(i, dim[1], k)] = u[back];
             }
     }
-
     if ((k_b + 1) == block[z_on]) {
-#pragma omp parallel for private(i, j, k) shared(values, next_values)
+    #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (j = 0; j < dim[y_on]; ++j)
             for (i = 0; i < dim[x_on]; ++i) {
-                values[_i(i, j, dim[z_on])] = u[up];
                 next_values[_i(i, j, dim[z_on])] = u[up];
+                values[_i(i, j, dim[z_on])] = u[up];
             }
     }
 
     while (true) {
         if (block[x_on] > 1) {
             if (i_b == 0) {
-                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b), id,
-                    values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b), _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+                             id, values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+                             _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
             } else if (i_b + 1 == block[x_on]) {
-                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b), id,
-                    values, 1, edge_xz, _ip(i_b - 1, j_b, k_b), _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+                             id, values, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+                             _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
             } else {
-                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b), id,
-                    values, 1, edge_xz, _ip(i_b - 1, j_b, k_b), _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b), id,
-                    values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b), _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+                             id, values, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+                             _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+                             id, values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+                             _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
             }
         }
 
 
         if (block[y_on] > 1) {
             if (j_b == 0) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b), _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+                             id, values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+                             _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
             } else if (j_b + 1 == block[y_on]) {
-                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b), id,
-                    values, 1, edge_yz, _ip(i_b, j_b - 1, k_b), _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+                             id, values, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+                             _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
             } else {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b), id,
-                    values, 1, edge_yz, _ip(i_b, j_b - 1, k_b), _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b), _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+                             id, values, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+                             _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+                             id, values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+                             _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
             }
         }
 
         if (block[z_on] > 1) {
             if (k_b == 0) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1), _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+                             id, values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+                             _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
             } else if (k_b + 1 == block[z_on]) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1), id,
-                    values, 1, edge_xy, _ip(i_b, j_b, k_b - 1), _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+                             id, values, 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+                             _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
             } else {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1), id,
-                    values, 1, edge_xy, _ip(i_b, j_b, k_b - 1), _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1), _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+                             id, values, 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+                             _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+                             id, values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+                             _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
             }
         }
 
         double diff = 0.0;
 
-#pragma omp parallel for private(i, j, k) shared(values, next_values) reduction(max: diff)
+        #pragma omp parallel for private(i, j, k) shared(values, next_values) reduction(max: diff)
         for (k = 0; k < dim[z_on]; ++k) {
             for (j = 0; j < dim[y_on]; ++j) {
                 for (i = 0; i < dim[x_on]; ++i) {
-                    double val = 0.5 * (
-                        (values[_i(i + 1, j, k)] + values[_i(i - 1, j, k)]) / (h[x_on] * h[x_on]) +
-                        (values[_i(i, j + 1, k)] + values[_i(i, j - 1, k)]) / (h[y_on] * h[y_on]) +
-                        (values[_i(i, j, k + 1)] + values[_i(i, j, k - 1)]) / (h[z_on] * h[z_on])
-                        ) / (1 / (h[x_on] * h[x_on]) + 1 / (h[y_on] * h[y_on]) + 1 / (h[z_on] * h[z_on]));
+                    double next_values[_i(i, j, k)] = 0.5 * ((values[_i(i + 1, j, k)] + values[_i(i - 1, j, k)]) / (h[x_on] * h[x_on]) +
+                                                            (values[_i(i, j + 1, k)] + values[_i(i, j - 1, k)]) / (h[y_on] * h[y_on]) +
+                                                            (values[_i(i, j, k + 1)] + values[_i(i, j, k - 1)]) / (h[z_on] * h[z_on])) /
+                                                            (1 / (h[x_on] * h[x_on]) + 1 / (h[y_on] * h[y_on]) + 1 / (h[z_on] * h[z_on]));
 
-                    next_values[_i(i, j, k)] = val;
-                    diff = std::max(diff, abs(val - values[_i(i, j, k)]));
+                    diff = max(diff, abs(next_values[_i(i, j, k)] - values[_i(i, j, k)]));
                 }
             }
         }
 
         MPI_Allgather(&diff, 1, MPI_DOUBLE, globDiff, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-        for (int i = 0; i < proccess_count; ++i) {
+        for (int i = 0; i < proccess_count; i++) {
             diff = max(diff, globDiff[i]);
         }
 
