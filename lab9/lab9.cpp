@@ -84,34 +84,35 @@ int main(int argc, char** argv) {
     values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     next_values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
-//
-//    // вычисляем размеры блоков и смещения каждого блока
-//    int dimXY[1] = dim[y_on]; // Плоскость xy
-//    int dimXZ[1] = dim[y_on] * dim[z_on]; // Плоскость zx
-//    int dimYZ[1] = dim[z_on]; // Плоскость yz
-//
+
+    // вычисляем размеры блоков и смещения каждого блока
+    const int dimXY[1] = dim[y_on]; // Плоскость xy
+    const int dimXZ[1] = dim[y_on] * dim[z_on]; // Плоскость zx
+    const int dimYZ[1] = dim[z_on]; // Плоскость yz
+    const int begin[1] = 0;
+
 //    int* offsetXY = (int*)malloc(sizeof(int) * dim[y_on]);
 //    int* offsetXZ = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
 //    int* offsetYZ = (int*)malloc(sizeof(int) * dim[z_on]);
-//
-//    // Плоскость xy
+
+    // Плоскость xy
 //    int idx = dim[x_on] + 3;
 //    for (int i = 0; i < dim[y_on]; ++i) {
 //        offsetXY[i] = idx;
 //        idx += dim[x_on] + 2;
 //        dimXY[i] = dim[x_on];
 //    }
-//
-//    MPI_Datatype r_type;
-//    MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
-//    MPI_Type_commit(&r_type);
-//
-//    MPI_Type_create_subarray(1, dimXY, dim, beg, MPI_ORDER_FORTRAN, r_type, &edge_xy);
-//    MPI_Type_commit(&edge_xy);
-//
+
+    MPI_Datatype r_type;
+    MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
+    MPI_Type_commit(&r_type);
+
+    MPI_Type_create_subarray(1, dimXY, dimXY, begin, MPI_ORDER_FORTRAN, r_type, &edge_xy);
+    MPI_Type_commit(&edge_xy);
+
 //    MPI_Type_indexed(dim[y_on], dimXY, offsetXY, MPI_DOUBLE, &edge_xy);
 //    MPI_Type_commit(&edge_xy);
-//
+
 //    // Плоскость yz
 //    int idy = (dim[x_on] + 2) * (dim[y_on] + 2) + 1;
 //    for (int i = 0; i < dim[z_on]; ++i) {
@@ -119,12 +120,14 @@ int main(int argc, char** argv) {
 //        idy += (dim[x_on] + 2) * (dim[y_on] + 2);
 //        dimYZ[i] = dim[x_on];
 //    }
-//
-//    // создаём новый тип функции с помощью type_indexed
+
+    MPI_Type_create_subarray(1, dimYZ, dimYZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_yz);
+    MPI_Type_commit(&edge_yz);
+    // создаём новый тип функции с помощью type_indexed
 //    MPI_Type_indexed(dim[z_on], dimYZ, offsetYZ, MPI_DOUBLE, &edge_yz);
 //    MPI_Type_commit(&edge_yz); //Регистрируем его в mpi
-//
-//    // Плоскость zx
+
+    // Плоскость zx
 //    int idz = (dim[x_on] + 2) * (dim[y_on] + 2) + dim[x_on] + 2;
 //    for (int k = 0; k < dim[z_on]; ++k) {
 //        for (int j = 0; j < dim[y_on]; ++j) {
@@ -134,12 +137,14 @@ int main(int argc, char** argv) {
 //        }
 //        idz += (dim[x_on] + 2) * 2;
 //    }
-//
-//    // создаём новый тип функции с помощью type_indexed
+
+    MPI_Type_create_subarray(1, dimXZ, dimXZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_xz);
+    MPI_Type_commit(&edge_xz);
+    // создаём новый тип функции с помощью type_indexed
 //    MPI_Type_indexed(dim[y_on] * dim[z_on], dimXZ, offsetXZ, MPI_DOUBLE, &edge_xz);
 //    MPI_Type_commit(&edge_xz); //Регистрируем его в mpi
-//
-//    // очищаем память от ненужных данных
+
+    // очищаем память от ненужных данных
 
     for (int k = 0; k <= dim[z_on]; k++) {					// Инициализация блока
         for (int j = 0; j <= dim[y_on]; j++) {
@@ -291,7 +296,6 @@ int main(int argc, char** argv) {
     char* container = new char[char_len * buff_len];
     memset(container, (char)' ', char_len * buff_len * sizeof(char));
 
-    int i, j, k;
     for (k = 0; k < dim[z_on]; k++) {
         for (j = 0; j < dim[y_on]; j++) {
             int len_new_symbol;
@@ -345,17 +349,8 @@ int main(int argc, char** argv) {
     MPI_File_close(&file);
 
     // очищаем память
-    free(buffer_char);
-    free(sizes);
-    free(offsets);
     free(next_values);
     free(values);
-    free(dimXY);
-    free(offsetXY);
-    free(dimYZ);
-    free(offsetYZ);
-    free(dimXZ);
-    free(offsetXZ);
 
     MPI_Finalize(); // завершаем MPI
 }
