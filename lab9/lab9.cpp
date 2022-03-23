@@ -86,10 +86,14 @@ int main(int argc, char** argv) {
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
 
     // вычисляем размеры блоков и смещения каждого блока
-    const int dimXY[1] = dim[y_on]; // Плоскость xy
-    const int dimXZ[1] = dim[y_on] * dim[z_on]; // Плоскость zx
-    const int dimYZ[1] = dim[z_on]; // Плоскость yz
-    const int begin[1] = 0;
+    int dimXY[1];
+    dimXY[0] = dim[y_on];
+    int dimXZ[1];
+    dimXZ[0] = dim[y_on] * dim[z_on];
+    int dimYZ[1];
+    dimYZ[0] = dim[z_on];
+    int begin[1];
+    begin[0] = 0;
 
 //    int* offsetXY = (int*)malloc(sizeof(int) * dim[y_on]);
 //    int* offsetXZ = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
