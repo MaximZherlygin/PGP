@@ -85,6 +85,11 @@ int main(int argc, char** argv) {
     next_values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
 
+//    int buffer_size = max(max(dim[x_on], dim[y_on]), dim[z_on]) * max(max(dim[x_on], dim[y_on]), dim[z_on]);
+//
+//    double* send = (double*)malloc(buffer_size * sizeof(double));
+//    double* recv = (double*)malloc(buffer_size * sizeof(double));
+
     int dimXY[1];
     dimXY[0] = dim[y_on];
     int dimXZ[1];
@@ -92,7 +97,7 @@ int main(int argc, char** argv) {
     int dimYZ[1];
     dimYZ[0] = dim[z_on];
     int begin[1];
-    begin[0] = 0;
+    begin[0] = 1;
 
     MPI_Datatype r_type;
     MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
