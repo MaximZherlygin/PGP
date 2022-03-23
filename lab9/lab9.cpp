@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
 
     // Плоскость xy
     int idx = dim[x_on] + 3;
-    for (size_t i = 0; i < dim[y_on]; ++i) {
+    for (int i = 0; i < dim[y_on]; ++i) {
         offsetXY[i] = idx;
         idx += dim[x_on] + 2;
         dimXY[i] = dim[x_on];
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
 
     // Плоскость yz
     int idy = (dim[x_on] + 2) * (dim[y_on] + 2) + 1;
-    for (size_t i = 0; i < dim[z_on]; ++i) {
+    for (int i = 0; i < dim[z_on]; ++i) {
         offsetYZ[i] = idy;
         idy += (dim[x_on] + 2) * (dim[y_on] + 2);
         dimYZ[i] = dim[x_on];
@@ -122,8 +122,8 @@ int main(int argc, char** argv) {
 
     // Плоскость zx
     int idz = (dim[x_on] + 2) * (dim[y_on] + 2) + dim[x_on] + 2;
-    for (size_t k = 0; k < dim[z_on]; ++k) {
-        for (size_t j = 0; j < dim[y_on]; ++j) {
+    for (int k = 0; k < dim[z_on]; ++k) {
+        for (int j = 0; j < dim[y_on]; ++j) {
             offsetXZ[k * dim[y_on] + j] = idz;
             idz += (dim[x_on] + 2);
             dimXZ[k * dim[y_on] + j] = 1;
@@ -145,6 +145,9 @@ int main(int argc, char** argv) {
         }
     }
 
+    int i;
+    int j;
+    int k;
     if (i_b == 0) {
 #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
@@ -291,7 +294,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    for (size_t i = 0; i < (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size; ++i) {
+    for (int i = 0; i < (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size; ++i) {
         if (buffer_char[i] == '\0') {
             buffer_char[i] = ' ';
         }
@@ -306,7 +309,7 @@ int main(int argc, char** argv) {
 
     int* sizes = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
     int* offsets = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
-    for (size_t i = 0; i < dim[y_on] * dim[z_on]; ++i) {
+    for (int i = 0; i < dim[y_on] * dim[z_on]; ++i) {
         sizes[i] = dim[x_on];
     }
 
