@@ -62,6 +62,14 @@ int main(int argc, char** argv) {
         cin >> u_start;
     }
 
+    cerr << block[x_on] << ' ' << block[y_on] << ' ' << block[z_on] << '\n';
+    cerr << dim[x_on] << ' ' << dim[y_on] << ' ' << dim[z_on] << '\n';
+    cerr << out_filename << ' ' << eps << '\n';
+    cerr << l[x_on] << ' ' << l[y_on] << ' ' << l[z_on] << '\n';
+    cerr << u[down] << ' ' << u[up] << ' ' << u[left] << '\n';
+    cerr << u[right] << ' ' << u[front] << ' ' << u[back] << '\n';
+    cerr << u_start << '\n';
+
     MPI_Bcast(block, 3, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(dim, 3, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -85,6 +93,11 @@ int main(int argc, char** argv) {
     next_values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
 
+//    int buffer_size = max(max(dim[x_on], dim[y_on]), dim[z_on]) * max(max(dim[x_on], dim[y_on]), dim[z_on]);
+//
+//    double* send = (double*)malloc(buffer_size * sizeof(double));
+//    double* recv = (double*)malloc(buffer_size * sizeof(double));
+
     int dimXY[1];
     dimXY[0] = dim[y_on];
     int dimXZ[1];
@@ -92,7 +105,7 @@ int main(int argc, char** argv) {
     int dimYZ[1];
     dimYZ[0] = dim[z_on];
     int begin[1];
-    begin[0] = 0;
+    begin[0] = 1;
 
     MPI_Datatype r_type;
     MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
