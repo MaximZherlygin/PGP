@@ -24,7 +24,7 @@ const int y_on = 1;
 const int z_on = 2;
 
 #define _i(i, j, k) (((k) + 1) * (dim[y_on] + 2) * (dim[x_on] + 2) + ((j) + 1) * (dim[x_on] + 2) + (i) + 1)
-#define _ip(i,j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
+#define _ip(i, j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
 
 int main(int argc, char** argv) {
     ios_base::sync_with_stdio(false);
@@ -93,32 +93,32 @@ int main(int argc, char** argv) {
     next_values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
 
-//    int buffer_size = max(max(dim[x_on], dim[y_on]), dim[z_on]) * max(max(dim[x_on], dim[y_on]), dim[z_on]);
+    int buffer_size = max(max(dim[x_on], dim[y_on]), dim[z_on]) * max(max(dim[x_on], dim[y_on]), dim[z_on]);
+
+    double* send = (double*)malloc(buffer_size * sizeof(double));
+    double* recv = (double*)malloc(buffer_size * sizeof(double));
+
+//    int dimXY[1];
+//    dimXY[0] = dim[x_on];
+//    int dimXZ[1];
+//    dimXZ[0] = dim[y_on] * dim[z_on];
+//    int dimYZ[1];
+//    dimYZ[0] = dim[z_on];
+//    int begin[1];
+//    begin[0] = 0;
 //
-//    double* send = (double*)malloc(buffer_size * sizeof(double));
-//    double* recv = (double*)malloc(buffer_size * sizeof(double));
-
-    int dimXY[1];
-    dimXY[0] = dim[x_on];
-    int dimXZ[1];
-    dimXZ[0] = dim[y_on] * dim[z_on];
-    int dimYZ[1];
-    dimYZ[0] = dim[z_on];
-    int begin[1];
-    begin[0] = 0;
-
-    MPI_Datatype r_type;
-    MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
-    MPI_Type_commit(&r_type);
-
-    MPI_Type_create_subarray(1, dimXY, dimXY, begin, MPI_ORDER_FORTRAN, r_type, &edge_xy);
-    MPI_Type_commit(&edge_xy);
-
-    MPI_Type_create_subarray(1, dimYZ, dimYZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_yz);
-    MPI_Type_commit(&edge_yz);
-
-    MPI_Type_create_subarray(1, dimXZ, dimXZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_xz);
-    MPI_Type_commit(&edge_xz);
+//    MPI_Datatype r_type;
+//    MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
+//    MPI_Type_commit(&r_type);
+//
+//    MPI_Type_create_subarray(1, dimXY, dimXY, begin, MPI_ORDER_FORTRAN, r_type, &edge_xy);
+//    MPI_Type_commit(&edge_xy);
+//
+//    MPI_Type_create_subarray(1, dimYZ, dimYZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_yz);
+//    MPI_Type_commit(&edge_yz);
+//
+//    MPI_Type_create_subarray(1, dimXZ, dimXZ, begin, MPI_ORDER_FORTRAN, r_type, &edge_xz);
+//    MPI_Type_commit(&edge_xz);
 
     for (int k = 0; k <= dim[z_on]; k++) {
         for (int j = 0; j <= dim[y_on]; j++) {
@@ -181,61 +181,230 @@ int main(int argc, char** argv) {
     }
 
     while (true) {
+//        if (block[x_on] > 1) {
+//            if (i_b == 0) {
+//                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+//                             id, values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+//                             _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+//            } else if (i_b + 1 == block[x_on]) {
+//                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+//                             id, values, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+//                             _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+//            } else {
+//                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+//                             id, values, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+//                             _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+//                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+//                             id, values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+//                             _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+//            }
+//        }
+//
+//
+//        if (block[y_on] > 1) {
+//            if (j_b == 0) {
+//                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+//                             id, values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+//                             _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+//            } else if (j_b + 1 == block[y_on]) {
+//                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+//                             id, values, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+//                             _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+//            } else {
+//                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+//                             id, values, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+//                             _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+//                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+//                             id, values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+//                             _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+//            }
+//        }
+//
+//        if (block[z_on] > 1) {
+//            if (k_b == 0) {
+//                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+//                             id, values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+//                             _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+//            } else if (k_b + 1 == block[z_on]) {
+//                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+//                             id, values, 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+//                             _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+//            } else {
+//                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+//                             id, values, 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+//                             _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+//                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+//                             id, values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+//                             _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+//            }
+//        }
+
         if (block[x_on] > 1) {
             if (i_b == 0) {
-                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b),
-                             id, values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        send[_ib(j, k)] = values[_i(dim[x_on] - 1, j, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
                              _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        values[_i(dim[x_on], j, k)] = recv[_ib(j, k)];
+                    }
+                }
             } else if (i_b + 1 == block[x_on]) {
-                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
-                             id, values, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        send[_ib(j, k)] = values[_i(0, j, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
                              _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        values[_i(-1, j, k)] = recv[_ib(j, k)];
+                    }
+                }
             } else {
-                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b),
-                             id, values, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        send[_ib(j, k)] = values[_i(dim[x_on] - 1, j, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
                              _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b),
-                             id, values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        values[_i(-1, j, k)] = recv[_ib(j, k)];
+                        send[_ib(j, k)] = values[_i(0, j, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b - 1, j_b, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b + 1, j_b, k_b),
                              _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int j = 0; j < dim[y_on]; j++) {
+                        values[_i(dim[x_on], j, k)] = recv[_ib(j, k)];
+                    }
+                }
             }
         }
 
-
         if (block[y_on] > 1) {
             if (j_b == 0) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b),
-                             id, values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        send[_ib(i, k)] = values[_i(i, dim[y_on] - 1, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
                              _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
-            } else if (j_b + 1 == block[y_on]) {
-                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
-                             id, values, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, dim[y_on], k)] = recv[_ib(i, k)];
+                    }
+                }
+            }
+            else if (j_b + 1 == block[y_on]) {
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        send[_ib(i, k)] = values[_i(i, 0, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
                              _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
-            } else {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b),
-                             id, values, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, -1, k)] = recv[_ib(i, k)];
+                    }
+                }
+            }
+            else {
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        send[_ib(i, k)] = values[_i(i, dim[y_on] - 1, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
                              _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b),
-                             id, values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b),
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, -1, k)] = recv[_ib(i, k)];
+                        send[_ib(i, k)] = values[_i(i, 0, k)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b - 1, k_b),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b + 1, k_b),
                              _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                for (int k = 0; k < dim[z_on]; k++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, dim[y_on], k)] = recv[_ib(i, k)];
+                    }
+                }
             }
         }
 
         if (block[z_on] > 1) {
             if (k_b == 0) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1),
-                             id, values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        send[_ib(i, j)] = values[_i(i, j, dim[z_on] - 1)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
                              _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
-            } else if (k_b + 1 == block[z_on]) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1),
-                             id, values, 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, j, dim[z_on])] = recv[_ib(i, j)];
+                    }
+                }
+            }
+            else if (k_b + 1 == block[z_on]) {
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        send[_ib(i, j)] = values[_i(i, j, 0)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
                              _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
-            } else {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1),
-                             id, values, 1, edge_xy, _ip(i_b, j_b, k_b - 1),
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, j, -1)] = recv[_ib(i, j)];
+                    }
+                }
+            }
+            else {
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        send[_ib(i, j)] = values[_i(i, j, dim[z_on] - 1)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
                              _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1),
-                             id, values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1),
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, j, -1)] = recv[_ib(i, j)];
+                        send[_ib(i, j)] = values[_i(i, j, 0)];
+                    }
+                }
+                MPI_Sendrecv(send, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b - 1),
+                             id, recv, buffer_size, MPI_DOUBLE, _ip(i_b, j_b, k_b + 1),
                              _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                for (int j = 0; j < dim[y_on]; j++) {
+                    for (int i = 0; i < dim[x_on]; i++) {
+                        values[_i(i, j, dim[z_on])] = recv[_ib(i, j)];
+                    }
+                }
             }
         }
 
