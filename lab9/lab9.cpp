@@ -42,9 +42,9 @@ int main(int argc, char** argv) {
     double u[6];
     double u_start;
     string out_filename;
-    MPI_Datatype edge_xy;
-    MPI_Datatype edge_yz;
-    MPI_Datatype edge_xz;
+//    MPI_Datatype edge_xy;
+//    MPI_Datatype edge_yz;
+//    MPI_Datatype edge_xz;
 
     MPI_Status status;
     MPI_Init(&argc, &argv);
