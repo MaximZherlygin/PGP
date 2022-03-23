@@ -325,8 +325,8 @@ int main(int argc, char** argv) {
     MPI_Type_indexed(dim[y_on] * dim[z_on], sizes, offsets, num, &filetype);
     MPI_Type_commit(&filetype);
 
-    MPI_File_delete(out_filename, MPI_INFO_NULL);
-    MPI_File_open(MPI_COMM_WORLD, out_filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp);
+    MPI_File_delete(out_filename.c_str(), MPI_INFO_NULL);
+    MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp);
 
     MPI_File_set_view(fp, offset_write * n_size, num, filetype, "native", MPI_INFO_NULL);
     MPI_File_write_all(fp, buffer_char, (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size, MPI_CHAR, &status);
