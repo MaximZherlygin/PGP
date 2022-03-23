@@ -152,8 +152,8 @@ int main(int argc, char** argv) {
 #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
             for (j = 0; j < dim[y_on]; ++j) {
-                values[_i(-1, j, k)] = u[lft];
-                next_values[_i(-1, j, k)] = u[lft];
+                values[_i(-1, j, k)] = u[left];
+                next_values[_i(-1, j, k)] = u[left];
             }
     }
 
@@ -179,8 +179,8 @@ int main(int argc, char** argv) {
 #pragma omp parallel for private(i, j, k) shared(values, next_values)
         for (k = 0; k < dim[z_on]; ++k)
             for (j = 0; j < dim[y_on]; ++j) {
-                values[_i(dim[0], j, k)] = u[rght];
-                next_values[_i(dim[0], j, k)] = u[rght];
+                values[_i(dim[0], j, k)] = u[right];
+                next_values[_i(dim[0], j, k)] = u[right];
             }
     }
 
