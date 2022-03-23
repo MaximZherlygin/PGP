@@ -23,11 +23,8 @@ const int x_on = 0;
 const int y_on = 1;
 const int z_on = 2;
 
-// макросы _i, чтобы у нас можно было использовать в индексации -1 и n
 #define _i(i, j, k) (((k) + 1) * (dim[y_on] + 2) * (dim[x_on] + 2) + ((j) + 1) * (dim[x_on] + 2) + (i) + 1)
-
-#define _idp(i,j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
-//#define _idb(i, j) (j * buffer_length + i)
+#define _ip(i,j, k) ((k) * block[y_on] * block[x_on] + (j) * block[x_on] + (i))
 
 int main(int argc, char** argv) {
     ios_base::sync_with_stdio(false);
@@ -87,55 +84,62 @@ int main(int argc, char** argv) {
     values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     next_values = (double*)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
     double* globDiff = (double*)malloc(sizeof(double) * proccess_count);
-
-    // вычисляем размеры блоков и смещения каждого блока
-    int* dimXY = (int*)malloc(sizeof(int) * dim[y_on]); // Плоскость xy
-    int* dimXZ = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]); // Плоскость zx
-    int* dimYZ = (int*)malloc(sizeof(int) * dim[z_on]); // Плоскость yz
-
-    int* offsetXY = (int*)malloc(sizeof(int) * dim[y_on]);
-    int* offsetXZ = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
-    int* offsetYZ = (int*)malloc(sizeof(int) * dim[z_on]);
-
-    // Плоскость xy
-    int idx = dim[x_on] + 3;
-    for (int i = 0; i < dim[y_on]; ++i) {
-        offsetXY[i] = idx;
-        idx += dim[x_on] + 2;
-        dimXY[i] = dim[x_on];
-    }
-
-    MPI_Type_indexed(dim[y_on], dimXY, offsetXY, MPI_DOUBLE, &edge_xy);
-    MPI_Type_commit(&edge_xy);
-
-    // Плоскость yz
-    int idy = (dim[x_on] + 2) * (dim[y_on] + 2) + 1;
-    for (int i = 0; i < dim[z_on]; ++i) {
-        offsetYZ[i] = idy;
-        idy += (dim[x_on] + 2) * (dim[y_on] + 2);
-        dimYZ[i] = dim[x_on];
-    }
-
-    // создаём новый тип функции с помощью type_indexed
-    MPI_Type_indexed(dim[z_on], dimYZ, offsetYZ, MPI_DOUBLE, &edge_yz);
-    MPI_Type_commit(&edge_yz); //Регистрируем его в mpi
-
-    // Плоскость zx
-    int idz = (dim[x_on] + 2) * (dim[y_on] + 2) + dim[x_on] + 2;
-    for (int k = 0; k < dim[z_on]; ++k) {
-        for (int j = 0; j < dim[y_on]; ++j) {
-            offsetXZ[k * dim[y_on] + j] = idz;
-            idz += (dim[x_on] + 2);
-            dimXZ[k * dim[y_on] + j] = 1;
-        }
-        idz += (dim[x_on] + 2) * 2;
-    }
-
-    // создаём новый тип функции с помощью type_indexed
-    MPI_Type_indexed(dim[y_on] * dim[z_on], dimXZ, offsetXZ, MPI_DOUBLE, &edge_xz);
-    MPI_Type_commit(&edge_xz); //Регистрируем его в mpi
-
-    // очищаем память от ненужных данных
+//
+//    // вычисляем размеры блоков и смещения каждого блока
+//    int dimXY[1] = dim[y_on]; // Плоскость xy
+//    int dimXZ[1] = dim[y_on] * dim[z_on]; // Плоскость zx
+//    int dimYZ[1] = dim[z_on]; // Плоскость yz
+//
+//    int* offsetXY = (int*)malloc(sizeof(int) * dim[y_on]);
+//    int* offsetXZ = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
+//    int* offsetYZ = (int*)malloc(sizeof(int) * dim[z_on]);
+//
+//    // Плоскость xy
+//    int idx = dim[x_on] + 3;
+//    for (int i = 0; i < dim[y_on]; ++i) {
+//        offsetXY[i] = idx;
+//        idx += dim[x_on] + 2;
+//        dimXY[i] = dim[x_on];
+//    }
+//
+//    MPI_Datatype r_type;
+//    MPI_Type_contiguous(dim[y_on], MPI_DOUBLE, &r_type);
+//    MPI_Type_commit(&r_type);
+//
+//    MPI_Type_create_subarray(1, dimXY, dim, beg, MPI_ORDER_FORTRAN, r_type, &edge_xy);
+//    MPI_Type_commit(&edge_xy);
+//
+//    MPI_Type_indexed(dim[y_on], dimXY, offsetXY, MPI_DOUBLE, &edge_xy);
+//    MPI_Type_commit(&edge_xy);
+//
+//    // Плоскость yz
+//    int idy = (dim[x_on] + 2) * (dim[y_on] + 2) + 1;
+//    for (int i = 0; i < dim[z_on]; ++i) {
+//        offsetYZ[i] = idy;
+//        idy += (dim[x_on] + 2) * (dim[y_on] + 2);
+//        dimYZ[i] = dim[x_on];
+//    }
+//
+//    // создаём новый тип функции с помощью type_indexed
+//    MPI_Type_indexed(dim[z_on], dimYZ, offsetYZ, MPI_DOUBLE, &edge_yz);
+//    MPI_Type_commit(&edge_yz); //Регистрируем его в mpi
+//
+//    // Плоскость zx
+//    int idz = (dim[x_on] + 2) * (dim[y_on] + 2) + dim[x_on] + 2;
+//    for (int k = 0; k < dim[z_on]; ++k) {
+//        for (int j = 0; j < dim[y_on]; ++j) {
+//            offsetXZ[k * dim[y_on] + j] = idz;
+//            idz += (dim[x_on] + 2);
+//            dimXZ[k * dim[y_on] + j] = 1;
+//        }
+//        idz += (dim[x_on] + 2) * 2;
+//    }
+//
+//    // создаём новый тип функции с помощью type_indexed
+//    MPI_Type_indexed(dim[y_on] * dim[z_on], dimXZ, offsetXZ, MPI_DOUBLE, &edge_xz);
+//    MPI_Type_commit(&edge_xz); //Регистрируем его в mpi
+//
+//    // очищаем память от ненужных данных
 
     for (int k = 0; k <= dim[z_on]; k++) {					// Инициализация блока
         for (int j = 0; j <= dim[y_on]; j++) {
@@ -205,47 +209,47 @@ int main(int argc, char** argv) {
     while (true) {
         if (block[x_on] > 1) {
             if (i_b == 0) {
-                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _idp(i_b + 1, j_b, k_b), id,
-                    values + dim[x_on] + 1, 1, edge_xz, _idp(i_b + 1, j_b, k_b), _idp(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b), id,
+                    values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b), _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
             } else if (i_b + 1 == block[x_on]) {
-                MPI_Sendrecv(values + 1, 1, edge_xz, _idp(i_b - 1, j_b, k_b), id,
-                    values, 1, edge_xz, _idp(i_b - 1, j_b, k_b), _idp(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b), id,
+                    values, 1, edge_xz, _ip(i_b - 1, j_b, k_b), _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
             } else {
-                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _idp(i_b + 1, j_b, k_b), id,
-                    values, 1, edge_xz, _idp(i_b - 1, j_b, k_b), _idp(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + 1, 1, edge_xz, _idp(i_b - 1, j_b, k_b), id,
-                    values + dim[x_on] + 1, 1, edge_xz, _idp(i_b + 1, j_b, k_b), _idp(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on], 1, edge_xz, _ip(i_b + 1, j_b, k_b), id,
+                    values, 1, edge_xz, _ip(i_b - 1, j_b, k_b), _ip(i_b - 1, j_b, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + 1, 1, edge_xz, _ip(i_b - 1, j_b, k_b), id,
+                    values + dim[x_on] + 1, 1, edge_xz, _ip(i_b + 1, j_b, k_b), _ip(i_b + 1, j_b, k_b), MPI_COMM_WORLD, &status);
             }
         }
 
 
         if (block[y_on] > 1) {
             if (j_b == 0) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _idp(i_b, j_b + 1, k_b), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _idp(i_b, j_b + 1, k_b), _idp(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b), id,
+                    values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b), _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
             } else if (j_b + 1 == block[y_on]) {
-                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _idp(i_b, j_b - 1, k_b), id,
-                    values, 1, edge_yz, _idp(i_b, j_b - 1, k_b), _idp(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b), id,
+                    values, 1, edge_yz, _ip(i_b, j_b - 1, k_b), _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
             } else {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _idp(i_b, j_b + 1, k_b), id,
-                    values, 1, edge_yz, _idp(i_b, j_b - 1, k_b), _idp(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _idp(i_b, j_b - 1, k_b), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _idp(i_b, j_b + 1, k_b), _idp(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * dim[y_on], 1, edge_yz, _ip(i_b, j_b + 1, k_b), id,
+                    values, 1, edge_yz, _ip(i_b, j_b - 1, k_b), _ip(i_b, j_b - 1, k_b), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + dim[x_on] + 2, 1, edge_yz, _ip(i_b, j_b - 1, k_b), id,
+                    values + (dim[x_on] + 2) * (dim[y_on] + 1), 1, edge_yz, _ip(i_b, j_b + 1, k_b), _ip(i_b, j_b + 1, k_b), MPI_COMM_WORLD, &status);
             }
         }
 
         if (block[z_on] > 1) {
             if (k_b == 0) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _idp(i_b, j_b, k_b + 1), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _idp(i_b, j_b, k_b + 1), _idp(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1), id,
+                    values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1), _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
             } else if (k_b + 1 == block[z_on]) {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _idp(i_b, j_b, k_b - 1), id,
-                    values, 1, edge_xy, _idp(i_b, j_b, k_b - 1), _idp(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1), id,
+                    values, 1, edge_xy, _ip(i_b, j_b, k_b - 1), _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
             } else {
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _idp(i_b, j_b, k_b + 1), id,
-                    values, 1, edge_xy, _idp(i_b, j_b, k_b - 1), _idp(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
-                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _idp(i_b, j_b, k_b - 1), id,
-                    values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _idp(i_b, j_b, k_b + 1), _idp(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2) * dim[z_on], 1, edge_xy, _ip(i_b, j_b, k_b + 1), id,
+                    values, 1, edge_xy, _ip(i_b, j_b, k_b - 1), _ip(i_b, j_b, k_b - 1), MPI_COMM_WORLD, &status);
+                MPI_Sendrecv(values + (dim[x_on] + 2) * (dim[y_on] + 2), 1, edge_xy, _ip(i_b, j_b, k_b - 1), id,
+                    values + (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 1), 1, edge_xy, _ip(i_b, j_b, k_b + 1), _ip(i_b, j_b, k_b + 1), MPI_COMM_WORLD, &status);
             }
         }
 
@@ -281,58 +285,64 @@ int main(int argc, char** argv) {
         values = temporary_values;
     }
 
-    int n_size = 14;
+    int char_len = 14;
+    int buff_len = (dim[x_on] + 2) * (dim[y_on] + 2) * (dim[z_on] + 2);
 
-    char* buffer_char = (char*)malloc(sizeof(char) * (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size);
-    memset(buffer_char, ' ', (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size);
+    char* container = new char[char_len * buff_len];
+    memset(container, (char)' ', char_len * buff_len * sizeof(char));
 
-    for (int k = 0; k < dim[z_on]; ++k) {
-        for (int j = 0; j < dim[y_on]; ++j) {
-            for (int i = 0; i < dim[x_on]; ++i) {
-                sprintf(buffer_char + ((k)*dim[y_on] * dim[x_on] + (j)*dim[x_on] + (i)) * n_size, "%.6e", next_values[_i(i, j, k)]);
+    int i, j, k;
+    for (k = 0; k < dim[z_on]; k++) {
+        for (j = 0; j < dim[y_on]; j++) {
+            int len_new_symbol;
+            for (i = 0; i < dim[x_on] - 1; i++) {
+                len_new_symbol = sprintf(&container[_i(i, j, k) * char_len], "%.6e", next_values[_i(i, j, k)]);
+                if (char_len > len_new_symbol) {
+                    container[_i(i, j, k) * char_len + len_new_symbol] = ' ';
+                }
+            }
+            len_new_symbol = sprintf(&container[_i(i, j, k) * char_len], "%.6e\n", next_values[_i(i, j, k)]);
+            if (char_len > len_new_symbol) {
+                container[_i(i, j, k) * char_len + len_new_symbol] = ' ';
             }
         }
     }
 
-    for (int i = 0; i < (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size; ++i) {
-        if (buffer_char[i] == '\0') {
-            buffer_char[i] = ' ';
-        }
-    }
+    int size[3];
+    int beg[3];
+    int file_size[3];
+    int file_beg[3];
+    MPI_Datatype repr_type;
+    MPI_Datatype memory_type;
+    MPI_Datatype file_type;
 
-    MPI_Datatype num;
-    MPI_Type_contiguous(n_size, MPI_CHAR, &num);
-    MPI_Type_commit(&num);
+    MPI_Type_contiguous(char_len, MPI_CHAR, &repr_type);
+    MPI_Type_commit(&repr_type);
 
-    MPI_File fp;
-    MPI_Datatype filetype;
+    beg[x_on] = 1;
+    beg[y_on] = 1;
+    beg[z_on] = 1;
+    file_beg[x_on] = dim[x_on] * i_b;
+    file_beg[y_on] = dim[y_on] * j_b;
+    file_beg[z_on] = dim[z_on] * k_b;
+    size[x_on] = dim[x_on] + 2;
+    size[y_on] = dim[y_on] + 2;
+    size[z_on] = dim[z_on] + 2;
+    file_size[x_on] = dim[x_on] * block[x_on];
+    file_size[y_on] = dim[y_on] * block[y_on];
+    file_size[z_on] = dim[z_on] * block[z_on];
 
-    int* sizes = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
-    int* offsets = (int*)malloc(sizeof(int) * dim[y_on] * dim[z_on]);
-    for (int i = 0; i < dim[y_on] * dim[z_on]; ++i) {
-        sizes[i] = dim[x_on];
-    }
+    MPI_Type_create_subarray(3, size, dim, beg, MPI_ORDER_FORTRAN, repr_type, &memory_type);
+    MPI_Type_commit(&memory_type);
+    MPI_Type_create_subarray(3, file_size, dim, file_beg, MPI_ORDER_FORTRAN, repr_type, &file_type);
+    MPI_Type_commit(&file_type);
 
-    MPI_Aint offset_write = i_b * dim[x_on] + j_b * dim[y_on] * dim[x_on] * block[x_on] + k_b * dim[z_on] * dim[x_on] * block[x_on] * dim[y_on] * block[y_on];
-
-    for (int k = 0; k < dim[z_on]; ++k) {
-        for (int j = 0; j < dim[y_on]; ++j) {
-            int i = k * dim[y_on] + j;
-            offsets[i] = j * dim[x_on] * block[x_on] + k * dim[x_on] * block[x_on] * dim[y_on] * block[y_on];
-        }
-    }
-
-    MPI_Type_indexed(dim[y_on] * dim[z_on], sizes, offsets, num, &filetype);
-    MPI_Type_commit(&filetype);
-
+    MPI_File file;
     MPI_File_delete(out_filename.c_str(), MPI_INFO_NULL);
-    MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp);
-
-    MPI_File_set_view(fp, offset_write * n_size, num, filetype, "native", MPI_INFO_NULL);
-    MPI_File_write_all(fp, buffer_char, (dim[x_on]) * (dim[y_on]) * (dim[z_on]) * n_size, MPI_CHAR, &status);
-
-    MPI_File_close(&fp);
-    // закрытие файла
+    MPI_File_open(MPI_COMM_WORLD, out_filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &file);
+    MPI_File_set_view(file, 0, MPI_CHAR, file_type, "native", MPI_INFO_NULL);
+    MPI_File_write_all(file, container, 1, memory_type, MPI_STATUS_IGNORE);
+    MPI_File_close(&file);
 
     // очищаем память
     free(buffer_char);
