@@ -62,6 +62,14 @@ int main(int argc, char** argv) {
         cin >> u_start;
     }
 
+    cerr << block[x_on] << ' ' << block[y_on] << ' ' << block[z_on] << '\n';
+    cerr << dim[x_on] << ' ' << dim[y_on] << ' ' << dim[z_on] << '\n';
+    cerr << out_filename << ' ' << eps << '\n';
+    cerr << l[x_on] << ' ' << l[y_on] << ' ' << l[z_on] << '\n';
+    cerr << u[down] << ' ' << u[up] << ' ' << u[left] << '\n';
+    cerr << u[right] << ' ' << u[front] << ' ' << u[back] << '\n';
+    cerr << u_start << '\n';
+
     MPI_Bcast(block, 3, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(dim, 3, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
