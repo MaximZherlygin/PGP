@@ -9,27 +9,9 @@
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 
-__global__ void kernel_calculate_histogramm(float* gpu_data, int n, int* result_data, float min, float max, int count) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    int offsetX = gridDim.x * blockDim.x;
-
-    for (int i = idx; i < n; i += offsetX) {
-        int val = (int) ((count - 1) * (gpu_data[i] - min) / (max - min));
-        atomicAdd(&(result_data[val]), 1);
-    }
-}
-
-__global__ void kernel_split_histogramm(float* gpu_data, int n, float* split_data,
-                                        int* first, unsigned int* size, float minimum,
-                                        float maximum, int count) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    int offsetX = gridDim.x * blockDim.x;
-
-    for (int i = idx; i < n; i += offsetX) {
-        int ind = ((count - 1) * (gpu_data[i] - minimum) / (maximum - minimum));
-        int val = first[ind] + atomicAdd(&(size[ind]), 1);
-        split_data[val] = gpu_data[i];
-    }
+__global__ void kernel_dis_scan(int* gpu_data, int* values) {
+    int id = blockIdx.x * 32 * 2 + threadIdx.x;
+    gpu_data[id] += values[blockIdx.x];
 }
 
 __global__ void kernel_scan(int* data, int n, int* next, int* res) {
@@ -79,11 +61,6 @@ __global__ void kernel_scan(int* data, int n, int* next, int* res) {
 
     res[second_idx + 32 * blockIdx.x * 2] = shared_data[second_idx + second_val];
     res[first_idx + 32 * blockIdx.x * 2] = shared_data[first_idx + first_val];
-}
-
-__global__ void kernel_dis_scan(int* gpu_data, int* values) {
-    int id = blockIdx.x * 32 * 2 + threadIdx.x;
-    gpu_data[id] += values[blockIdx.x];
 }
 
 __host__ void r_scan(int* gpu_data, int size, int* out_data) {
@@ -157,6 +134,29 @@ __global__ void kernel_sort23(float* pockets, int size, int* pos, int* sizes) {
     
     if (pocket_size > idx) {
         pockets[pos[blockIdx.x] + idx] = pocket_buff[idx];
+    }
+}
+
+__global__ void kernel_split_histogramm(float* gpu_data, int n, float* split_data,
+                                        int* first, unsigned int* size, float minimum,
+                                        float maximum, int count) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int offsetX = gridDim.x * blockDim.x;
+
+    for (int i = idx; i < n; i += offsetX) {
+        int ind = ((count - 1) * (gpu_data[i] - minimum) / (maximum - minimum));
+        int val = first[ind] + atomicAdd(&(size[ind]), 1);
+        split_data[val] = gpu_data[i];
+    }
+}
+
+__global__ void kernel_calculate_histogramm(float* gpu_data, int n, int* result_data, float min, float max, int count) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int offsetX = gridDim.x * blockDim.x;
+
+    for (int i = idx; i < n; i += offsetX) {
+        int val = (int) ((count - 1) * (gpu_data[i] - min) / (max - min));
+        atomicAdd(&(result_data[val]), 1);
     }
 }
 
