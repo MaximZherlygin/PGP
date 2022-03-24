@@ -32,7 +32,7 @@ typedef unsigned short int hword;
 typedef unsigned int dword;
 
 __global__ void prevKernel(
-    const float const* gpu_vector, const dword start, const dword n, const dword max, const dword min,
+    const float* gpu_vector, const dword start, const dword n, const dword max, const dword min,
     dword* keys,
     dword* hist, const dword bs)
 {
@@ -46,9 +46,9 @@ __global__ void prevKernel(
 }
 
 __global__ void groupKernel(
-    const dword const* keys,  dword* new_keys, const dword n, 
+    const dword* keys,  dword* new_keys, const dword n,
     dword* scan,
-    const float const* gpu_vector, float* new_gpu_vector, const dword start)
+    const float * gpu_vector, float* new_gpu_vector, const dword start)
 {
     dword idx = threadIdx.x + blockDim.x * blockIdx.x;
     dword shift = blockDim.x * gridDim.x;
@@ -107,7 +107,7 @@ __global__ void scanKernel(dword* scan, const dword n) {
     }
 }
 
-__global__ void fillKernel(const dword const* scan_prev, dword* scan, const dword n) {
+__global__ void fillKernel(const dword* scan_prev, dword* scan, const dword n) {
     dword idx = threadIdx.x + blockDim.x * blockIdx.x;
     dword shift = blockDim.x * gridDim.x;
     for (dword i = idx; i < n; i += shift) {
@@ -116,7 +116,7 @@ __global__ void fillKernel(const dword const* scan_prev, dword* scan, const dwor
     }
 }
 
-__global__ void addKernel(dword* scan_prev, const dword const* scan, const dword n) {
+__global__ void addKernel(dword* scan_prev, const dword* scan, const dword n) {
     dword idx = threadIdx.x + blockDim.x * blockIdx.x;
     dword shift = blockDim.x * gridDim.x;
     for (dword i = idx; i + SCAN_BASE < n; i += shift)
