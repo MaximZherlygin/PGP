@@ -20,13 +20,14 @@ __global__ void kernel_calculate_histogramm(float* gpu_data, int n, int* result_
 }
 
 __global__ void kernel_split_histogramm(float* gpu_data, int n, float* split_data,
-                                        int* first, unsigned int* size, float min,
-                                        float max, int count) {
+                                        int* first, unsigned int* size, float minimum,
+                                        float maximum, int count) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int offsetX = gridDim.x * blockDim.x;
 
     for (int i = idx; i < n; i += offsetX) {
-        int val = first[((count - 1) * (gpu_data[i] - min) / (max - min))] + atomicAdd(&(size[((count - 1) * (gpu_data[i] - min) / (max - min) * )]), 1);
+        int ind = ((count - 1) * (gpu_data[i] - minimum) / (maximum - minimum));
+        int val = first[ind] + atomicAdd(&(size[ind]), 1);
         split_data[val] = gpu_data[i];
     }
 }
