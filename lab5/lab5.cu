@@ -18,6 +18,10 @@
     }\
 }
 
+typedef unsigned char byte;
+typedef unsigned short int hword;
+typedef unsigned int dword;
+
 #define START_CLOCK(NAME, NAME1) \
 static dword NAME = 0; \
 dword NAME1 = clock();
@@ -26,10 +30,6 @@ dword NAME1 = clock();
 NAME += clock() - NAME1;
 
 #define GET_CLOCK(NAME) NAME
-
-typedef unsigned char byte;
-typedef unsigned short int hword;
-typedef unsigned int dword;
 
 __global__ void prevKernel(
     const float* gpu_vector, const dword start, const dword n, const dword max, const dword min,
