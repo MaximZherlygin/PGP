@@ -26,8 +26,7 @@ __global__ void kernel_split_histogramm(float* gpu_data, int n, float* split_dat
     int offsetX = gridDim.x * blockDim.x;
 
     for (int i = idx; i < n; i += offsetX) {
-        int val = first[((count - 1) * (gpu_data[i] - min) / (max - min))] +
-                atomicAdd(&(size[((count - 1) * (gpu_data[i] - min) / (max - min) * )]), 1)
+        int val = first[((count - 1) * (gpu_data[i] - min) / (max - min))] + atomicAdd(&(size[((count - 1) * (gpu_data[i] - min) / (max - min) * )]), 1);
         split_data[val] = gpu_data[i];
     }
 }
@@ -68,10 +67,10 @@ __global__ void kernel_scan(int* data, int n, int* next, int* res) {
         __syncthreads();
 
         if (i > threadIdx.x) {
-            int temp_val = shared_data[(idx + 1) * temp_val - 1 + (((idx + 1) * temp_val - 1) >> 5)];
-            shared_data[(idx + 1) * temp_val - 1 + (((idx + 1) * temp_val - 1) >> 5)] =
-                    shared_data[(idx + 2) * temp_val - 1 + (((idx + 2) * temp_val - 1) >> 5)];
-            shared_data[(idx + 2) * temp_val - 1 + (((idx + 2) * temp_val - 1) >> 5)] += temp_val;
+            int temp_val = shared_data[(idx + 1) * temp - 1 + (((idx + 1) * temp - 1) >> 5)];
+            shared_data[(idx + 1) * temp - 1 + (((idx + 1) * temp - 1) >> 5)] =
+                    shared_data[(idx + 2) * temp - 1 + (((idx + 2) * temp - 1) >> 5)];
+            shared_data[(idx + 2) * temp - 1 + (((idx + 2) * temp - 1) >> 5)] += temp_val;
         }
     }
 
