@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <stdio.h>
 #include <limits>
@@ -10,249 +9,265 @@
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 
+__global__ void kernel_calculate_histogramm(float* gpu_data, int n, int* result_data, float min, float max, int count) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int offsetX = gridDim.x * blockDim.x;
 
-
-__global__ void histogramcalc(float* arr, int n, int* res, float min, float max, int scnt) {
-   int i=blockDim.x*blockIdx.x+threadIdx.x;
-   int set=gridDim.x*blockDim.x;
-   for (;i<n;i += set) {
-        atomicAdd(&(res[(int)((arr[i] - min) / (max - min) * (scnt - 1))]), 1);
-    }}
-
-__global__ void histogramsplit(float* arrdev, int n, float* sdev,
-   int* firstsplit,
-   unsigned int* splitsize,    float min,float max,int scnt){
-   int i=blockDim.x*blockIdx.x+threadIdx.x;
-   int set=gridDim.x*blockDim.x;
-   for (;i < n;i +=set) {
-       int sid = ((arrdev[i] - min) / (max - min) * (scnt - 1));
-       sdev[firstsplit[sid] + atomicAdd(&(splitsize[sid]), 1)] = arrdev[i];
-    }}
-
-__global__ void scan(int *data, int n, int *s, int *res) {
-   __shared__ int sharr[2 * 32+((2 * 32)>>5)];
-
-   int set = 1;
-       int ai = threadIdx.x;
-    int bi = threadIdx.x+(n/2); 
-    int set_A=(ai>>5);
-     int set_B=(bi>>5);
-   sharr[ai+ set_A]= data[ai+ 2 * 32 * blockIdx.x];
-   sharr[bi+ set_B]= data[bi+ 2 * 32 * blockIdx.x];
-    for (int i= n >> 1;i>0;i >>= 1) {
-      __syncthreads();
-       if (threadIdx.x<i) {
-                   int a=set * (2 * threadIdx.x + 1) - 1 + ((set * (2 * threadIdx.x + 1) - 1) >> 5);
-                   int b=set * (2 * threadIdx.x + 2) - 1 + ((set * (2 * threadIdx.x + 2) - 1) >> 5);
-                   sharr[b]+=sharr[a];}
-                   set <<= 1;}
-    if (threadIdx.x==0) {
-          int idx=n - 1 + ((n - 1)>>5);
-          s[blockIdx.x]=sharr[idx];
-          sharr[idx]=0;
+    for (int i = idx; i < n; i += offsetX) {
+        int val = (int) ((count - 1) * (gpu_data[i] - min) / (max - min));
+        atomicAdd(&(result_data[val]), 1);
     }
-    for (int i=1;i < n;i <<= 1) {
-       set >>= 1;
-       __syncthreads();
-       if (threadIdx.x < i) {
-           int a=set * (2 * threadIdx.x + 1) - 1 + ((set * (2 * threadIdx.x + 1) - 1)>>5);
-           int b=set * (2 * threadIdx.x + 2) - 1 + ((set * (2 * threadIdx.x + 2) - 1)>>5);
-           int t=sharr[a];
-           sharr[a]=sharr[b];
-           sharr[b]+=t;
-        }   }
-   __syncthreads();
-   set = 2 * 32 * blockIdx.x;
-   res[ai + set]=sharr[ai + set_A];
-   res[bi + set]=sharr[bi + set_B];
 }
 
-__global__ void scandistr(int* arr, int* s) {
-    arr[threadIdx.x+blockIdx.x*2*32] += s[blockIdx.x];
+__global__ void kernel_split_histogramm(float* gpu_data, int n, float* split_data,
+                                        int* first, unsigned int* size, float min,
+                                        float max, int count) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int offsetX = gridDim.x * blockDim.x;
+
+    for (int i = idx; i < n; i += offsetX) {
+        int val = first[((count - 1) * (gpu_data[i] - min) / (max - min))] +
+                atomicAdd(&(size[((count - 1) * (gpu_data[i] - min) / (max - min) * )]), 1)
+        split_data[val] = gpu_data[i];
+    }
 }
-__host__ void scanrec(int* arr, int n, int* res) {
-   int block=n/(2 * 32) + 1;
-   int* s=NULL;
 
-   cudaMalloc((void**)&s, block * sizeof(int));
-   int* s1=NULL;
-       cudaMalloc((void**)&s1, block * sizeof(int));
-   dim3 threads(32, 1, 1);
-   dim3 blocks(block, 1, 1);
-   scan <<<blocks, threads >>> (arr, 2 * 32, s, res);
-   if (n>=2*32) 
-           scanrec(s, block, s1);
-   else 
-       cudaMemcpy(s1, s, block * sizeof(int), cudaMemcpyDeviceToDevice);
+__global__ void kernel_scan(int* data, int n, int* next, int* res) {
+    __shared__ int shared_data[((2 * 32) >> 5) + 2 * 32];
 
-   if (block>1) {
-       threads=dim3(2 * 32, 1, 1);    
-           blocks = dim3(block - 1, 1, 1);
-       scandistr <<<blocks, threads >>> (res + (2 * 32), s1 + 1);
-    }}
 
-/*void oddeven(float* arr, int size) {
-   for (int i = 0; i < size; i++) {
-       for (int j = i & 1; j < size - 1; j += 2) {
-           if (arr[j] > arr[j + 1]) {
-               float t = arr[j];
-                    arr[j] = arr[j + 1];
-                    arr[j + 1] = t;
-} } }}
-*/
-__global__ void oddeven(float* buckets, int n, int* posbucket, int* sizebuck) {
-   int bsize=sizebuck[blockIdx.x];
-   if (bsize==-1) 
-      return;
-         __shared__ float bucketsh[2048];
+    int idx = threadIdx.x * 2;
+    int first_idx = threadIdx.x;
+    int second_idx = threadIdx.x + (n / 2);
+    int first_val = first_idx >> 5;
+    int second_val = second_idx >> 5;
 
-  bucketsh[2 * threadIdx.x] = FLT_MAX; 
-   bucketsh[2 * threadIdx.x + 1] = FLT_MAX; 
-   __syncthreads();
-  if (2 * threadIdx.x <bsize) 
-      bucketsh[2 * threadIdx.x] = buckets[2 * threadIdx.x + posbucket[blockIdx.x]];    
-        if (2 * threadIdx.x+1 < bsize) 
-       bucketsh[2 * threadIdx.x + 1]=buckets[2 * threadIdx.x + 1 + posbucket[blockIdx.x]];
+    shared_data[first_val + first_idx] = data[32 * blockIdx.x * 2 + first_idx];
+    shared_data[second_val + second_idx] = data[32 * blockIdx.x * 2 + second_idx];
+    int temp = 1;
+    for (int i = n >> 1; i > 0; i >>= 1) {
+
+        __syncthreads();
+
+        if (i > threadIdx.x) {
+            shared_data[(idx + 2) * temp - 1 + (((idx + 2) * temp - 1) >> 5)] +=
+                    shared_data[(idx + 1) * temp - 1 + (((idx + 1) * temp - 1) >> 5)];
+        }
+
+        temp <<= 1;
+    }
+
+    if (threadIdx.x == 0) {
+        next[blockIdx.x] = shared_data[n + ((n - 1) >> 5) - 1];
+        shared_data[n + ((n - 1) >> 5) - 1] = 0;
+    }
+
+    for (int i = 1; i < n; i <<= 1) {
+        temp >>= 1;
+
+        __syncthreads();
+
+        if (i > threadIdx.x) {
+            int temp_val = shared_data[(idx + 1) * temp_val - 1 + (((idx + 1) * temp_val - 1) >> 5)];
+            shared_data[(idx + 1) * temp_val - 1 + (((idx + 1) * temp_val - 1) >> 5)] =
+                    shared_data[(idx + 2) * temp_val - 1 + (((idx + 2) * temp_val - 1) >> 5)];
+            shared_data[(idx + 2) * temp_val - 1 + (((idx + 2) * temp_val - 1) >> 5)] += temp_val;
+        }
+    }
+
     __syncthreads();
-  for (int i=0;i<blockDim.x;i++) {
 
-      if (2*threadIdx.x+ 1 <2047) {
-       if (bucketsh[2 * threadIdx.x + 1] > bucketsh[2 * threadIdx.x + 2]) {
-               float t = bucketsh[2 * threadIdx.x + 1];
-               bucketsh[2 * threadIdx.x + 1] = bucketsh[2 * threadIdx.x + 2];
-               bucketsh[2 * threadIdx.x + 2] = t;
-            } }
-          __syncthreads();
-       if (threadIdx.x <2048) {
-           if (bucketsh[2 * threadIdx.x ] > bucketsh[2 * threadIdx.x  + 1]) {
-               float t = bucketsh[2 * threadIdx.x];
-               bucketsh[2 * threadIdx.x] = bucketsh[2 * threadIdx.x + 1];
-               bucketsh[2 * threadIdx.x + 1] = t;         }}
-        __syncthreads();}
-   if (2 * threadIdx.x< bsize) 
-      buckets[2 * threadIdx.x+ posbucket[blockIdx.x]]=bucketsh[2 * threadIdx.x];
-    if (2 * threadIdx.x+1 <bsize) 
-       buckets[2 * threadIdx.x+1 + posbucket[blockIdx.x]]=bucketsh[2 * threadIdx.x+1];
+    res[second_idx + 32 * blockIdx.x * 2] = shared_data[second_idx + second_val];
+    res[first_idx + 32 * blockIdx.x * 2] = shared_data[first_idx + first_val];
 }
-__host__ void bucketsort(float* arrdev, int n) {
-  thrust::device_ptr<const float> data_device_ptr = thrust::device_pointer_cast(arrdev);
-    auto min_max = thrust::minmax_element(thrust::device, data_device_ptr,
-                                          data_device_ptr + n);
-   
-    float min = *min_max.first;   
-    float max = *min_max.second;
-    // printf("%f %f",min,max);
-   
-    if (fabs(min - max)<1e-9) 
+
+__global__ void kernel_dis_scan(int* gpu_data, int* values) {
+    int id = blockIdx.x * 32 * 2 + threadIdx.x;
+    gpu_data[id] += values[blockIdx.x];
+}
+
+__host__ void r_scan(int* gpu_data, int size, int* out_data) {
+    int* arr1;
+    int* arr2;
+    cudaMalloc((void **) &arr1, size / (2 * 32) + 1 * sizeof(int));
+    cudaMalloc((void **) &arr2, size / (2 * 32) + 1 * sizeof(int));
+
+    kernel_scan<<<dim3(size / (2 * 32) + 1, 1, 1), dim3(32, 1, 1)>>>(gpu_data, 2 * 32, arr1, out_data);
+    if (size < 2 * 32) {
+        cudaMemcpy(arr2, arr1, size / (2 * 32) + 1 * sizeof(int), cudaMemcpyDeviceToDevice);
+    } else {
+        r_scan(arr1, size / (2 * 32) + 1, arr2);
+    }
+
+    if (size / (2 * 32) + 1 > 1) {
+        kernel_dis_scan<<<dim3(size / (2 * 32), 1, 1), dim3(2 * 32, 1, 1) >>>(out_data + (2 * 32), arr2 + 1);
+    }
+}
+
+__global__ void kernel_sort23(float* pockets, int size, int* pos, int* sizes) {
+    __shared__ float pocket_buff[2048];
+    int pocket_size = sizes[blockIdx.x];
+
+    if (pocket_size == -1) {
         return;
+    }
     
-   int scnt=n/550+1;
-   int* lensplit=NULL;
-   cudaMalloc((void**)&lensplit, scnt * sizeof(int));
-       cudaMemset(lensplit, 0, scnt * sizeof(int));
-   histogramcalc <<<512, 512 >>> (arrdev, n, lensplit, min, max, scnt);
-   int* firstsplit=NULL;
-   cudaMalloc((void**)&firstsplit, scnt * sizeof(int));
-   scanrec(lensplit, scnt, firstsplit);
-       unsigned int* splitsize=NULL;
-   cudaMalloc((void**)&splitsize, scnt * sizeof(unsigned int));
-   cudaMemset(splitsize, 0, scnt * sizeof(unsigned int));
-   float* sdev=NULL;
-   cudaMalloc((void**)&sdev, n * sizeof(float));
-       histogramsplit <<<512, 512 >>> (arrdev, n, sdev,
-        firstsplit,
-        splitsize,
-        min, max, scnt);
-   int bcnt=scnt;
-   int* lenbuck=(int*)malloc(bcnt * sizeof(int));
-   memset(lenbuck, 0, bcnt * sizeof(int));
-   int* firstbuck=(int*)malloc(bcnt * sizeof(int));
-       int bid=0;
-   for (int sid=0;sid<scnt;sid++) {
-       int firstsplit1=0;
-       cudaMemcpy(&firstsplit1, &(firstsplit[sid]), sizeof(int), cudaMemcpyDeviceToHost);
-       int lensplit1=0;
-               cudaMemcpy(&lensplit1, &(lensplit[sid]), sizeof(int), cudaMemcpyDeviceToHost);
-       if (lensplit1>2048) {
-           bid++;
-           float* split=&(sdev[firstsplit1]); 
-           bucketsort(split, lensplit1);
-           firstbuck[bid]=firstsplit1; 
-           lenbuck[bid]=-1; 
-           bid++;        }
-        else {
-           int buckcur =2048 - lenbuck[bid];
-           if (lensplit1<=buckcur) {
-               if (buckcur==2048) 
-                   firstbuck[bid]=firstsplit1;
-               lenbuck[bid]+=lensplit1;         }
-           else {
-               bid++;
-               firstbuck[bid]=firstsplit1;
-               lenbuck[bid]=lensplit1;   }}}
-   if (lenbuck[bid]==0) 
-       bcnt=bid;
-   else 
-       bcnt=bid + 1;
-   /*        for (int i=0;i<bcnt;i++) {
-       int sbuck=lenbuck[i];
-       if (sbuck==-1) 
-           continue;
-       float* bucket=(float*)malloc(sbuck * sizeof(float));
-       int posbuck=firstbuck[i];
-       cudaMemcpy(bucket, &(sdev[posbuck]), sbuck * sizeof(float), cudaMemcpyDeviceToHost);
-      oddeven(bucket, sbuck);        cudaMemcpy(&(sdev[posbuck]), bucket, sbuck * sizeof(float), cudaMemcpyHostToDevice);}
-      */
-      dim3 blocks(bcnt, 1, 1);
-    dim3 threads(2048 / 2, 1, 1);    
- int *firstdev = NULL;
- cudaMalloc((void **)&firstdev, bcnt*sizeof(int));
- cudaMemcpy(firstdev, firstbuck, bcnt*sizeof(int),cudaMemcpyHostToDevice);
-   int *lendev = NULL;
-  cudaMalloc((void **)&lendev, bcnt*sizeof(int));
- cudaMemcpy(lendev, lenbuck, bcnt*sizeof(int),cudaMemcpyHostToDevice);
+    int idx = threadIdx.x * 2;
 
-    oddeven <<<blocks, threads>>> (sdev,n,firstdev,lendev);
+    pocket_buff[idx] = FLT_MAX;
+    pocket_buff[idx + 1] = FLT_MAX;
 
-   cudaMemcpy(arrdev, sdev, n * sizeof(float), cudaMemcpyDeviceToDevice);
+    __syncthreads();
+
+    if (pocket_size > idx) {
+        pocket_buff[idx] = pockets[pos[blockIdx.x] + idx];
+    }
+
+    if (pocket_size > idx + 1) {
+        pocket_buff[idx + 1] = pockets[pos[blockIdx.x] + idx + 1];
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < blockDim.x; i++) {
+        if (idx + 1 < 2047) {
+            if (pocket_buff[idx + 2] < pocket_buff[idx + 1]) {
+                float temp = pocket_buff[idx + 1];
+                pocket_buff[idx + 1] = pocket_buff[idx + 2];
+                pocket_buff[idx + 2] = temp;
+            }
+        }
+
+        __syncthreads();
+
+        if (threadIdx.x < 2048) {
+            if (pocket_buff[idx + 1] < pocket_buff[idx]) {
+                float temp = pocket_buff[idx];
+                pocket_buff[idx] = pocket_buff[idx + 1];
+                pocket_buff[idx + 1] = temp;
+            }
+        }
+        
+        __syncthreads();
+    }
+
+    if (pocket_size > idx + 1) {
+        pockets[pos[blockIdx.x] + idx + 1] = pocket_buff[idx + 1];
+    }
+    
+    if (pocket_size > idx) {
+        pockets[pos[blockIdx.x] + idx] = pocket_buff[idx];
+    }
 }
 
+__host__ void pocket_sort(float *gpu_data, int size) {
+    int count = size / 550 + 1;
+    int* s_size;
+    int* spl;
+    unsigned int* spl_size;
+    float* gpu_split;
+
+    thrust::device_ptr<const float> data_device_ptr = thrust::device_pointer_cast(gpu_data);
+    auto minmax_elem = thrust::minmax_element(thrust::device, data_device_ptr, data_device_ptr + size);
+
+    float maximum = *minmax_elem.second;
+    float minimum = *minmax_elem.first;
+    // printf("%f %f",min,max);
+
+    if (fabs(minimum - maximum) < 1e-9) {
+        return;
+    }
+
+    cudaMalloc((void **) &s_size, sizeof(int) * count);
+    cudaMemset(s_size, 0, sizeof(int) * count);
+
+    kernel_calculate_histogramm <<<512, 512>>>(gpu_data, size, s_size, minimum, maximum, count);
+
+    cudaMalloc((void **) &spl, sizeof(int) * count);
+    r_scan(s_size, count, spl);
+
+    cudaMalloc((void **) &spl_size, sizeof(unsigned int) * count);
+    cudaMemset(spl_size, 0, sizeof(unsigned int) * count);
+
+    cudaMalloc((void **) &gpu_split, sizeof(float) * size);
+    kernel_split_histogramm <<<512, 512 >>>(gpu_data, size, gpu_split, spl, spl_size, minimum, maximum, count);
+
+    int count_b = count;
+
+    int* pocket_size = (int*) malloc(sizeof(int) * count_b);
+    memset(pocket_size, 0, sizeof(int) * count_b);
+
+    int* pocket = (int*) malloc(sizeof(int) * count_b);
+
+    int id_b = 0;
+    for (int id_s = 0; id_s < count; id_s++) {
+        int split_1 = 0;
+        cudaMemcpy(&split_1, &(spl[id_s]), sizeof(int), cudaMemcpyDeviceToHost);
+
+        int split_1_size = 0;
+        cudaMemcpy(&split_1_size, &(s_size[id_s]), sizeof(int), cudaMemcpyDeviceToHost);
+
+        if (split_1_size <= 2048) {
+            int buckcur = 2048 - pocket_size[id_b];
+            if (split_1_size <= buckcur) {
+                if (buckcur == 2048)
+                    pocket[id_b] = split_1;
+                pocket_size[id_b] += split_1_size;
+            } else {
+                id_b++;
+                pocket[id_b] = split_1;
+                pocket_size[id_b] = split_1_size;
+            }
+
+        } else {
+            id_b++;
+            float* temp = &(gpu_split[split_1]);
+            pocket_sort(temp, split_1_size);
+            pocket_size[id_b] = -1;
+            pocket[id_b] = split_1;
+            id_b++;
+        }
+    }
+    if (pocket_size[id_b] != 0) {
+        count_b = id_b + 1;
+    } else {
+        count_b = id_b;
+    }
+
+    int* gpu_val;
+    cudaMalloc((void**) &gpu_val, sizeof(int) * count_b);
+    cudaMemcpy(gpu_val, pocket, sizeof(int) * count_b, cudaMemcpyHostToDevice);
+
+    int* val_size;
+    cudaMalloc((void**) &val_size, sizeof(int) * count_b);
+    cudaMemcpy(val_size, pocket_size, sizeof(int) * count_b, cudaMemcpyHostToDevice);
+
+    kernel_sort23 <<<dim3(count_b, 1, 1), dim3(2048 / 2, 1, 1)>>>(gpu_split, size, gpu_val, val_size);
+
+    cudaMemcpy(gpu_data, gpu_split, size * sizeof(float), cudaMemcpyDeviceToDevice);
+}
 
 
 int main() {
 
-    int n = 0;
-//    float* data = read_data_as_plain_text(&n);
-  //  float *data = read_data(&n);
+    int size = 0;
+    fread(&size, sizeof(int), 1, stdin);
 
-    fread(&n, sizeof(int), 1, stdin);
-    if (n == 0) {
+    if (size == 0) {
         return 0;
     }
-    float* data = new float[n];
-	
-    fread(data, sizeof(float), n, stdin);
-    
-    float* arrdev = NULL;
-    cudaMalloc((void**)&arrdev, n * sizeof(float));
-    cudaMemcpy(arrdev, data, n * sizeof(float), cudaMemcpyHostToDevice);
+    float *values = new float[size];
+    float *gpu_values;
 
+    fread(values, sizeof(float), size, stdin);
 
-    bucketsort(arrdev, n);
+    cudaMalloc((void **)&gpu_values, size * sizeof(float));
+    cudaMemcpy(gpu_values, values, size * sizeof(float), cudaMemcpyHostToDevice);
 
-    cudaMemcpy(data, arrdev, n * sizeof(float), cudaMemcpyDeviceToHost);
-   
-	fwrite(data, sizeof(float), n, stdout);
+    pocket_sort(gpu_values, size);
 
-   // print_array(data, n);
-
-   /* if (sorted(data, n)) {
-        printf("--\nStatus: OK\n");
-    }
-    else {
-        printf("--\nStatus: WA\n");
-    }
-*/
+    cudaMemcpy(values, gpu_values, size * sizeof(float), cudaMemcpyDeviceToHost);
+    fwrite(values, sizeof(float), size, stdout);
     return 0;
 }
 
