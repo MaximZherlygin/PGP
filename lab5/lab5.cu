@@ -1,360 +1,272 @@
-﻿#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-#include <stdlib.h>
+#include <iostream>
 #include <stdio.h>
-#include <vector>
+#include <limits>
+#include <cfloat>
+#include <math.h>
+#include <time.h>
+#include <fstream>
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
-#include <thrust/device_vector.h>
-#include <cmath>
-#include <algorithm>
-#include <ctime>
-#include <map>
 
-#define CE(call) { \
-    cudaError_t res = call;\
-    if (res != cudaSuccess) {\
-        fprintf(stderr, "ERROR %u IN %s:%d. Message: %s\n", res, __FILE__, __LINE__, cudaGetErrorString(res));\
-        exit(0);\
-    }\
+__global__ void kernel_dis_scan(int* gpu_data, int* values) {
+    int id = threadIdx.x + blockIdx.x * 2 * 32;
+    gpu_data[id] += values[blockIdx.x];
 }
 
-typedef unsigned char byte;
-typedef unsigned short int hword;
-typedef unsigned int dword;
+__global__ void kernel_scan(int* data, int n, int* next, int* res) {
+    __shared__ int shared_data[((2 * 32) >> 5) + 2 * 32];
 
-#define START_CLOCK(NAME, NAME1) \
-static dword NAME = 0; \
-dword NAME1 = clock();
 
-#define END_CLOCK(NAME, NAME1) \
-NAME += clock() - NAME1;
+    int idx = threadIdx.x * 2;
+    int first_idx = threadIdx.x;
+    int second_idx = threadIdx.x + (n / 2);
+    int first_val = first_idx >> 5;
+    int second_val = second_idx >> 5;
 
-#define GET_CLOCK(NAME) NAME
+    shared_data[first_val + first_idx] = data[32 * blockIdx.x * 2 + first_idx];
+    shared_data[second_val + second_idx] = data[32 * blockIdx.x * 2 + second_idx];
+    int temp = 1;
+    for (int i = n >> 1; i > 0; i >>= 1) {
 
-__global__ void prevKernel(
-    const float* gpu_vector, const dword start, const dword n, const dword max, const dword min,
-    dword* keys,
-    dword* hist, const dword bs)
-{
-    dword idx = threadIdx.x + blockDim.x * blockIdx.x;
-    dword shift = blockDim.x * gridDim.x;
-    float tmp = bs * 0.999 / (gpu_vector[max] - gpu_vector[min]);
-    for (dword i = idx; i < n; i += shift) {
-        keys[i] = dword((gpu_vector[i + start] - gpu_vector[min]) * tmp);
-        atomicAdd(hist + keys[i], 1);
-    }
-}
-
-__global__ void groupKernel(
-    const dword* keys,  dword* new_keys, const dword n,
-    dword* scan,
-    const float * gpu_vector, float* new_gpu_vector, const dword start)
-{
-    dword idx = threadIdx.x + blockDim.x * blockIdx.x;
-    dword shift = blockDim.x * gridDim.x;
-    for (dword i = idx; i < n; i += shift) {
-        dword prev = atomicSub(scan + keys[i], 1);
-        prev--;
-        new_gpu_vector[prev] = gpu_vector[i + start];
-        new_keys[prev] = keys[i];
-    }
-}
-
-#define SCAN_BASE 1024
-
-__global__ void scanKernel(dword* scan, const dword n) {
-    __shared__ dword small_arr[SCAN_BASE];
-    for (dword i = blockIdx.x; i < ((n % SCAN_BASE == 0) ? (n / SCAN_BASE) : (n / SCAN_BASE + 1)); i += gridDim.x) {
-        for (dword j = threadIdx.x; j < SCAN_BASE; ) {
-            dword tmp = i * SCAN_BASE + j;
-            small_arr[j] = (tmp < n ? scan[tmp] : 0);
-            break;
-        }
         __syncthreads();
 
-        for (dword k = 1; k < SCAN_BASE; k *= 2) {
-            for (dword j = threadIdx.x; k - 1 + 2 * k * j + k < SCAN_BASE; ) {
-                small_arr[k - 1 + 2 * k * j + k] += small_arr[k - 1 + 2 * k * j];
-                break;
-            }
-            __syncthreads();
+        if (i > threadIdx.x) {
+            shared_data[(idx + 2) * temp - 1 + (((idx + 2) * temp - 1) >> 5)] += \
+                    shared_data[(idx + 1) * temp - 1 + (((idx + 1) * temp - 1) >> 5)];
         }
-        if (threadIdx.x == 0)
-            small_arr[SCAN_BASE - 1] = 0;
+
+        temp <<= 1;
+    }
+
+    if (threadIdx.x == 0) {
+        next[blockIdx.x] = shared_data[n - 1 + ((n - 1) >> 5)];
+        shared_data[n - 1 + ((n - 1) >> 5)] = 0;
+    }
+
+    for (int i = 1; i < n; i <<= 1) {
+        temp >>= 1;
+
         __syncthreads();
 
-        for (dword k = SCAN_BASE / 2; k >= 1; k /= 2) {
-            for (dword j = threadIdx.x; k - 1 + 2 * k * j + k < SCAN_BASE; ) {
-                dword tmp = small_arr[k - 1 + 2 * k * j + k];
-                small_arr[k - 1 + 2 * k * j + k] += small_arr[k - 1 + 2 * k * j];
-                small_arr[k - 1 + 2 * k * j] = tmp;
-                break;
+        if (i > threadIdx.x) {
+            int temp_val = shared_data[temp * (idx + 1) - 1 + ((temp * (idx + 1) - 1) >> 5)];
+            shared_data[temp * (idx + 1) - 1 + ((temp * (idx + 1) - 1) >> 5)] = \
+                    shared_data[temp * (idx + 2) - 1 + ((temp * (idx + 2) - 1) >> 5)];
+            shared_data[temp * (idx + 2) - 1 + ((temp * (idx + 2) - 1) >> 5)] += temp_val;
+        }
+    }
+
+    __syncthreads();
+
+    res[second_idx + 32 * blockIdx.x * 2] = shared_data[second_idx + second_val];
+    res[first_idx + 32 * blockIdx.x * 2] = shared_data[first_idx + first_val];
+}
+
+__host__ void r_scan(int* gpu_data, int size, int* out_data) {
+    int* arr1 = NULL;
+    int* arr2 = NULL;
+    cudaMalloc((void **) &arr1, (size / (2 * 32) + 1) * sizeof(int));
+    cudaMalloc((void **) &arr2, (size / (2 * 32) + 1) * sizeof(int));
+
+    kernel_scan<<<dim3(size / (2 * 32) + 1, 1, 1), dim3(32, 1, 1)>>>(gpu_data, 2 * 32, arr1, out_data);
+    if (size < 2 * 32) {
+        cudaMemcpy(arr2, arr1, (size / (2 * 32) + 1) * sizeof(int), cudaMemcpyDeviceToDevice);
+    } else {
+        r_scan(arr1, (size / (2 * 32) + 1), arr2);
+    }
+
+    if ((size / (2 * 32) + 1) > 1) {
+        kernel_dis_scan<<<dim3(size / (2 * 32), 1, 1), dim3(2 * 32, 1, 1)>>>(out_data + (2 * 32), arr2 + 1);
+    }
+}
+
+__global__ void kernel_sort23(float* pockets, int size, int* pos, int* sizes) {
+    __shared__ float pocket_buff[2048];
+    int pocket_size = sizes[blockIdx.x];
+
+    if (pocket_size == -1) {
+        return;
+    }
+    
+    int idx = threadIdx.x * 2;
+
+    pocket_buff[idx] = FLT_MAX;
+    pocket_buff[idx + 1] = FLT_MAX;
+
+    __syncthreads();
+
+    if (pocket_size > idx) {
+        pocket_buff[idx] = pockets[pos[blockIdx.x] + idx];
+    }
+
+    if (pocket_size > idx + 1) {
+        pocket_buff[idx + 1] = pockets[pos[blockIdx.x] + idx + 1];
+    }
+
+    __syncthreads();
+
+    for (int i = 0; i < blockDim.x; i++) {
+        if (idx + 1 < 2047) {
+            if (pocket_buff[idx + 2] < pocket_buff[idx + 1]) {
+                float temp = pocket_buff[idx + 1];
+                pocket_buff[idx + 1] = pocket_buff[idx + 2];
+                pocket_buff[idx + 2] = temp;
             }
-            __syncthreads();
         }
 
-        for (dword j = threadIdx.x; j + 1 < SCAN_BASE; ) {
-            dword tmp = i * SCAN_BASE + j;
-            if (tmp + 1 < n)
-                scan[tmp] = small_arr[j + 1];
-            break;
-        }
-        if (threadIdx.x == 0)
-            if ((i + 1) * SCAN_BASE - 1 < n)
-                scan[(i + 1) * SCAN_BASE - 1] += small_arr[SCAN_BASE - 1];
-            else
-                scan[n - 1] = small_arr[SCAN_BASE - 1];
-    }
-}
-
-__global__ void fillKernel(const dword* scan_prev, dword* scan, const dword n) {
-    dword idx = threadIdx.x + blockDim.x * blockIdx.x;
-    dword shift = blockDim.x * gridDim.x;
-    for (dword i = idx; i < n; i += shift) {
-        scan[i] = scan_prev[(i + 1) * SCAN_BASE - 1 < (n - 1) * SCAN_BASE ?
-            (i + 1) * SCAN_BASE - 1 : n * SCAN_BASE - 1];
-    }
-}
-
-__global__ void addKernel(dword* scan_prev, const dword* scan, const dword n) {
-    dword idx = threadIdx.x + blockDim.x * blockIdx.x;
-    dword shift = blockDim.x * gridDim.x;
-    for (dword i = idx; i + SCAN_BASE < n; i += shift)
-        scan_prev[i + SCAN_BASE] += scan[i / SCAN_BASE];
-}
-
-const byte split_size = 32;
-#define POCKET_SIZE 512
-
-__global__ void sort23Kernel(float* gpu_vector, dword* left_bord, dword* right_bord, const dword n) {
-    dword i;
-    dword bord;
-    dword tmp1;
-    float tmp;
-    __shared__ float vector[POCKET_SIZE];
-
-    for (dword b = blockIdx.x; b < n; b += gridDim.x) {
-        for (i = threadIdx.x; i < right_bord[b] - left_bord[b]; i += blockDim.x)
-            vector[i] = gpu_vector[i + left_bord[b]];
         __syncthreads();
 
-        for (dword k = 0; k < right_bord[b] - left_bord[b]; k += 2) {
-            bord = (right_bord[b] - left_bord[b]) / 2;
-            for (i = threadIdx.x; i < bord; i += blockDim.x) {
-                tmp1 = 2 * i;
-                if (vector[tmp1] > vector[tmp1 + 1]) {
-                    tmp = vector[tmp1 + 1];
-                    vector[tmp1 + 1] = vector[tmp1];
-                    vector[tmp1] = tmp;
-                }
-            }
-            __syncthreads();
-            bord = (right_bord[b] - left_bord[b] - 1) / 2;
-            for (i = threadIdx.x; i < bord; i += blockDim.x) {
-                tmp1 = 2 * i + 1;
-                if (vector[tmp1] > vector[tmp1 + 1]) {
-                    tmp = vector[tmp1 + 1];
-                    vector[tmp1 + 1] = vector[tmp1];
-                    vector[tmp1] = tmp;
-                }
-            }
-            __syncthreads();
-        }
-
-        for (i = threadIdx.x; i < right_bord[b] - left_bord[b]; i += blockDim.x)
-            gpu_vector[i + left_bord[b]] = vector[i];
-    }
-}
-
-void scan(dword* arr_scan, const dword n) {
-    scanKernel << <1024, SCAN_BASE >> > (arr_scan, n);
-    CE(cudaGetLastError());
-    if (n <= SCAN_BASE)
-        return;
-
-    dword* next_scan;
-    CE(cudaMalloc(&next_scan, sizeof(dword) * (n / SCAN_BASE + 1)));
-    fillKernel << <256, 256 >> > (arr_scan, next_scan, (n / SCAN_BASE + 1));
-    CE(cudaGetLastError());
-
-    scan(next_scan, (n / SCAN_BASE + 1));
-
-    addKernel << <256, 256>> > (arr_scan, next_scan, n);
-    CE(cudaGetLastError());
-    CE(cudaFree(next_scan));
-
-}
-
-dword* keys;
-dword* hist;
-dword* new_keys;
-float* new_gpu_vector;
-dword* gpu_left_bord;
-dword* gpu_right_bord;
-
-void sort(float* gpu_vector, dword n, const dword start = 0) {
-    static thrust::device_ptr<float> p_arr = thrust::device_pointer_cast(gpu_vector);
-    static thrust::device_ptr<float> max, min;
-
-    max = thrust::max_element(p_arr + start, p_arr + n);
-    min = thrust::min_element(p_arr + start, p_arr + n);
-    if (max == min)
-        return;
-
-    n -= start;
-    if (n == 1)
-        return;
-
-    dword n_split = (n - 1) / split_size + 1;
-    CE(cudaMemset(hist, 0, sizeof(dword) * n_split));
-
-    prevKernel<<<2048, 1024>>>(gpu_vector, start, n, dword(max - p_arr), dword(min - p_arr),
-        keys, hist, n_split);
-    CE(cudaGetLastError());
-
-    scan(hist, n_split);
-
-    groupKernel << <2048, 1024 >> > (keys, new_keys, n, hist, gpu_vector, new_gpu_vector, start);
-    CE(cudaGetLastError());
-    CE(cudaMemcpy(gpu_vector + start, new_gpu_vector, sizeof(float) * n, cudaMemcpyDeviceToDevice));
-    static std::vector<dword> cpu_keys(n);
-    CE(cudaMemcpy(&cpu_keys[0], new_keys, sizeof(dword) * n, cudaMemcpyDeviceToHost));
-
-    static std::vector <dword> left_bord((2 * n / (POCKET_SIZE + 1) + 1));
-    static std::vector <dword> right_bord((2 * n / (POCKET_SIZE + 1) + 1));
-    std::vector <std::pair<dword, dword>> rec_bord;
-    dword index_bord = 0;
-    dword count = 0;
-    dword pocket;
-    dword prev;
-    dword from = 0;
-    for (dword i = 0; i < n; ) {
-        pocket = cpu_keys[i];
-        prev = i;
-        while (cpu_keys[i] == pocket) {
-            count++;
-            i++;
-            if (i == n) {
-                left_bord[index_bord] = from + start;
-                right_bord[index_bord] = i + start;
-                index_bord++;
-                break;
-            }
-            if (count == POCKET_SIZE) {
-                count = 0;
-                if (pocket == cpu_keys[i]) {
-                    if (from == prev) {
-                        while (i < n && cpu_keys[i] == pocket)
-                            i++;
-                        rec_bord.push_back({ from + start , i + start});
-                        from = i;
-                        break;
-                    }
-                    left_bord[index_bord] = from + start;
-                    right_bord[index_bord] = prev + start;
-                    index_bord++;
-                    i = prev;
-                    from = prev;
-                    break;
-                }
-                left_bord[index_bord] = from + start;
-                right_bord[index_bord] = i + start;
-                index_bord++;
-                from = i;
-                break;
+        if (threadIdx.x < 2048) {
+            if (pocket_buff[idx + 1] < pocket_buff[idx]) {
+                float temp = pocket_buff[idx];
+                pocket_buff[idx] = pocket_buff[idx + 1];
+                pocket_buff[idx + 1] = temp;
             }
         }
+        
+        __syncthreads();
     }
 
-    CE(cudaMemcpy(gpu_left_bord, &left_bord[0], sizeof(dword) * index_bord, cudaMemcpyHostToDevice));
-    CE(cudaMemcpy(gpu_right_bord, &right_bord[0], sizeof(dword) * index_bord, cudaMemcpyHostToDevice));
-    sort23Kernel << <2048, POCKET_SIZE / 2 >> > (gpu_vector, gpu_left_bord, gpu_right_bord, index_bord);
-    CE(cudaGetLastError());
-
-    for (dword i = 0; i < rec_bord.size(); i++)
-        sort(gpu_vector, rec_bord[i].second, rec_bord[i].first);
-
+    if (pocket_size > idx + 1) {
+        pockets[pos[blockIdx.x] + idx + 1] = pocket_buff[idx + 1];
+    }
+    
+    if (pocket_size > idx) {
+        pockets[pos[blockIdx.x] + idx] = pocket_buff[idx];
+    }
 }
 
-void cpu_sort23(std::vector <float>& vector, const dword start, const dword end) {
-    for (size_t i = start; i < end; i++) {
-        for (size_t j = start + ((i % 2) ? 0 : 1); j + 1 < end; j += 2) {
-            if (vector[j] > vector[j + 1]) {
-                std::swap(vector[j], vector[j + 1]);
+__global__ void kernel_split_histogramm(float* gpu_data, int n, float* split_data,
+                                        int* first, unsigned int* size, float minimum,
+                                        float maximum, int count) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int offsetX = gridDim.x * blockDim.x;
+
+    for (int i = idx; i < n; i += offsetX) {
+        int id = ((count - 1) * (gpu_data[i] - minimum) / (maximum - minimum));
+        split_data[first[id] + atomicAdd(&(size[id]), 1)] = gpu_data[i];
+    }
+}
+
+__global__ void kernel_calculate_histogramm(float* gpu_data, int n, int* result_data, float min, float max, int count) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int offsetX = gridDim.x * blockDim.x;
+
+    for (int i = idx; i < n; i += offsetX) {
+        int val = (int) ((gpu_data[i] - min) / (max - min) * (count - 1));
+        atomicAdd(&(result_data[val]), 1);
+    }
+}
+
+__host__ void pocket_sort(float *gpu_data, int size) {
+    int count = size / 550 + 1;
+    int* s_size = NULL;
+    int* spl = NULL;
+    unsigned int* spl_size = NULL;
+    float* gpu_split = NULL;
+
+    thrust::device_ptr<const float> data_device_ptr = thrust::device_pointer_cast(gpu_data);
+    auto minmax_elem = thrust::minmax_element(thrust::device, data_device_ptr, data_device_ptr + size);
+
+    float maximum = *minmax_elem.second;
+    float minimum = *minmax_elem.first;
+    // printf("%f %f",min,max);
+
+    if (fabs(minimum - maximum) < 1e-9) {
+        return;
+    }
+
+    cudaMalloc((void **) &s_size, sizeof(int) * count);
+    cudaMemset(s_size, 0, sizeof(int) * count);
+
+    kernel_calculate_histogramm <<<512, 512>>>(gpu_data, size, s_size, minimum, maximum, count);
+
+    cudaMalloc((void **) &spl, sizeof(int) * count);
+    r_scan(s_size, count, spl);
+
+    cudaMalloc((void **) &spl_size, sizeof(unsigned int) * count);
+    cudaMemset(spl_size, 0, sizeof(unsigned int) * count);
+
+    cudaMalloc((void **) &gpu_split, sizeof(float) * size);
+    kernel_split_histogramm <<<512, 512 >>>(gpu_data, size, gpu_split, spl, spl_size, minimum, maximum, count);
+
+    int count_b = count;
+
+    int* pocket_size = (int*) malloc(sizeof(int) * count_b);
+    memset(pocket_size, 0, sizeof(int) * count_b);
+
+    int* pocket = (int*) malloc(sizeof(int) * count_b);
+
+    int id_b = 0;
+    for (int id_s = 0; id_s < count; id_s++) {
+        int split_1 = 0;
+        cudaMemcpy(&split_1, &(spl[id_s]), sizeof(int), cudaMemcpyDeviceToHost);
+
+        int split_1_size = 0;
+        cudaMemcpy(&split_1_size, &(s_size[id_s]), sizeof(int), cudaMemcpyDeviceToHost);
+
+        if (split_1_size <= 2048) {
+            int buckcur = 2048 - pocket_size[id_b];
+            if (split_1_size <= buckcur) {
+                if (buckcur == 2048)
+                    pocket[id_b] = split_1;
+                pocket_size[id_b] += split_1_size;
+            } else {
+                id_b++;
+                pocket[id_b] = split_1;
+                pocket_size[id_b] = split_1_size;
             }
+
+        } else {
+            id_b++;
+            float* temp = &(gpu_split[split_1]);
+            pocket_sort(temp, split_1_size);
+            pocket_size[id_b] = -1;
+            pocket[id_b] = split_1;
+            id_b++;
         }
     }
+    if (pocket_size[id_b] != 0) {
+        count_b = id_b + 1;
+    } else {
+        count_b = id_b;
+    }
+
+    int* gpu_val;
+    cudaMalloc((void**) &gpu_val, sizeof(int) * count_b);
+    cudaMemcpy(gpu_val, pocket, sizeof(int) * count_b, cudaMemcpyHostToDevice);
+
+    int* val_size;
+    cudaMalloc((void**) &val_size, sizeof(int) * count_b);
+    cudaMemcpy(val_size, pocket_size, sizeof(int) * count_b, cudaMemcpyHostToDevice);
+
+    kernel_sort23 <<<dim3(count_b, 1, 1), dim3(2048 / 2, 1, 1)>>>(gpu_split, size, gpu_val, val_size);
+
+    cudaMemcpy(gpu_data, gpu_split, size * sizeof(float), cudaMemcpyDeviceToDevice);
 }
 
-const dword max_buckets = 1000000;
 
-void cpu_sort(std::vector <float>& vector) {
-    float max = vector[0];
-    float min = vector[0];
-    for (dword i = 1; i < vector.size(); i++) {
-        if (vector[i] > max)
-            max = vector[i];
-        if (vector[i] < min)
-            min = vector[i];
-    }
-    std::vector<dword> keys(vector.size());
-    std::vector<dword> hist(max_buckets, 0);
-    float k = max_buckets * 0.999 / (max - min);
-    for (dword i = 0; i < keys.size(); i++) {
-        keys[i] = dword((vector[i] - min) * k);
-        hist[keys[i]]++;
-    }
-    for (dword i = 1; i < max_buckets; i++)
-        hist[i] += hist[i - 1];
-    std::vector <float> new_vector(vector.size());
-    for (dword i = 0; i < vector.size(); i++) {
-        new_vector[--hist[keys[i]]] = vector[i];
-    }
-    for (dword i = 0; i + 1 < hist.size(); i++)
-        cpu_sort23(new_vector, hist[i], hist[i + 1]);
-    cpu_sort23(new_vector, hist[hist.size() - 1], vector.size());
-    vector.swap(new_vector);
-}
+int main() {
 
-float norm_num(const dword k = 20) {
-    float sum = 0;
-    for (dword i = 0; i < k; i++)
-        sum += (rand() % 2 ? 1.f : -1.f) * float(rand()) / k;
-    return sum;
-}
+    int size = 0;
+    fread(&size, sizeof(int), 1, stdin);
 
-int main()
-{
-    dword n;
-    fread(&n, sizeof(dword), 1, stdin);
-    if (n == 0)
+    if (size == 0) {
         return 0;
+    }
+    float *values = new float[size];
+    float *gpu_values;
 
-    CE(cudaMalloc(&keys, sizeof(dword) * n));
-    CE(cudaMalloc(&hist, sizeof(dword) * ((n - 1) / split_size + 1)));
-    CE(cudaMalloc(&new_keys, sizeof(dword) * n));
-    CE(cudaMalloc(&new_gpu_vector, sizeof(float) * n));
-    CE(cudaMalloc(&gpu_left_bord, sizeof(dword) * (n / (POCKET_SIZE / 2 + 1) + 1)));
-    CE(cudaMalloc(&gpu_right_bord, sizeof(dword) * (n / (POCKET_SIZE / 2 + 1) + 1)));
+    fread(values, sizeof(float), size, stdin);
 
-    std::vector<float> cpu_vector(n);
-    fread(&cpu_vector[0], sizeof(float), n, stdin);
+    cudaMalloc((void **)&gpu_values, size * sizeof(float));
+    cudaMemcpy(gpu_values, values, size * sizeof(float), cudaMemcpyHostToDevice);
 
-    float* gpu_vector;
-    CE(cudaMalloc(&gpu_vector, sizeof(float) * n));
-    CE(cudaMemcpy(gpu_vector, &cpu_vector[0], sizeof(float) * n, cudaMemcpyHostToDevice));
+    pocket_sort(gpu_values, size);
 
-    sort(gpu_vector, n);
-    CE(cudaFree(new_keys));
-    CE(cudaFree(hist));
-    CE(cudaFree(keys));
-    CE(cudaFree(new_gpu_vector));
-    CE(cudaFree(gpu_left_bord));
-    CE(cudaFree(gpu_right_bord));
-
-    CE(cudaMemcpy(&cpu_vector[0], gpu_vector, sizeof(float) * n, cudaMemcpyDeviceToHost));
-    CE(cudaFree(gpu_vector));
-
-    fwrite(&cpu_vector[0], sizeof(float), n, stdout);
+    cudaMemcpy(values, gpu_values, size * sizeof(float), cudaMemcpyDeviceToHost);
+    fwrite(values, sizeof(float), size, stdout);
     return 0;
 }
+
