@@ -14,7 +14,7 @@ __global__ void kernel_dis_scan(int* gpu_data, int* values) {
     gpu_data[id] += values[blockIdx.x];
 }
 
-__global__ void kernel_scan(int *values, int *split, int *out_values int size,) {
+__global__ void kernel_scan(int *values, int *split, int *out_values, int size) {
     int ix = threadIdx.x * 2;
     int first_index = threadIdx.x;
     int first_val = (first_index >> 5);
