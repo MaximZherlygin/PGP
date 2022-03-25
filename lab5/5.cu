@@ -14,26 +14,6 @@ __global__ void kernel_dis_scan(int* gpu_data, int* values) {
     gpu_data[id] += values[blockIdx.x];
 }
 
-__host__ void r_scan(int* gpu_data, int* out_data, int size) {
-    int *first_values = NULL;
-    int *second_values = NULL;
-
-    cudaMalloc((void **)&first_values, (size / 64 + 1) * sizeof(int));
-    cudaMalloc((void **)&second_values, (size / 64 + 1) * sizeof(int));
-
-    kernel_scan<<<dim3(32, 1, 1), dim3(size / 64 + 1, 1, 1)>>>(gpu_data, first_values, out_data, 64);
-
-    if (size < 64) {
-        cudaMemcpy(second_values, first_values, size / 64 + 1 * sizeof(int), cudaMemcpyDeviceToDevice);
-    } else {
-        r_scan(first_values, second_values, size / 64 + 1);
-    }
-
-    if (size / 64 + 1 > 1)
-        kernel_dis_scan<<<dim3(size / 64, 1, 1), dim3(64, 1, 1)>>>(out_data + 64, second_values + 1);
-}
-
-
 __global__ void kernel_scan(int *values, int *split, int *out_values int size,) {
     int ix = threadIdx.x * 2;
     int first_index = threadIdx.x;
@@ -81,6 +61,25 @@ __global__ void kernel_scan(int *values, int *split, int *out_values int size,) 
 
     out_values[first_index + blockIdx.x * 64] = shared_data[first_index + first_val];
     out_values[second_index + blockIdx.x * 64] = shared_data[second_index + second_val];
+}
+
+__host__ void r_scan(int* gpu_data, int* out_data, int size) {
+    int *first_values = NULL;
+    int *second_values = NULL;
+
+    cudaMalloc((void **)&first_values, (size / 64 + 1) * sizeof(int));
+    cudaMalloc((void **)&second_values, (size / 64 + 1) * sizeof(int));
+
+    kernel_scan<<<dim3(32, 1, 1), dim3(size / 64 + 1, 1, 1)>>>(gpu_data, first_values, out_data, 64);
+
+    if (size < 64) {
+        cudaMemcpy(second_values, first_values, size / 64 + 1 * sizeof(int), cudaMemcpyDeviceToDevice);
+    } else {
+        r_scan(first_values, second_values, size / 64 + 1);
+    }
+
+    if (size / 64 + 1 > 1)
+        kernel_dis_scan<<<dim3(size / 64, 1, 1), dim3(64, 1, 1)>>>(out_data + 64, second_values + 1);
 }
 
 __global__ void kernel_sort23(float* pockets, int* pockets_pos, int* pocket_sizes, int size) {
