@@ -643,8 +643,9 @@ int main(int argc, char* argv[]) {
         std::cout << sum_of_rays << "\t\t|\n";
 
         std::string iter = std::to_string(i);
-        replace(path_to_frames, "%d", iter);
-        FILE* fp = fopen(path_to_frames.c_str(), "wb");
+        std::string filename = path_to_frames;
+        replace(filename, "%d", iter);
+        FILE* fp = fopen(filename.c_str(), "wb");
         fwrite(&w, sizeof(int), 1, fp); // тут падает
         fwrite(&h, sizeof(int), 1, fp);
         fwrite(pixels, sizeof(uchar4), w * h, fp);
