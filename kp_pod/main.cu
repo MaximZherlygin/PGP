@@ -10,9 +10,7 @@
 #define _USE_MATH_DEFINES // for C++
 #include <cmath>
 
-using namespace std;
-
-#define CUDA_ERROR(err) { \
+#define CSC(err) { \
     if (err != cudaSuccess) { \
         fprintf(stderr, "ERROR: CUDA failed in %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(err)); \
         return(1); \
@@ -34,10 +32,17 @@ struct polygon {
     vec3 color;
 };
 
+bool replace(std::string& str, const std::string& from, const std::string& to) {
+    size_t start_pos = str.find(from);
+    if(start_pos == std::string::npos)
+        return false;
+    str.replace(start_pos, from.length(), to);
+    return true;
+}
+
+
 __host__ __device__  vec3 operator + (vec3 v1, vec3 v2) {
-    return  vec3{v1.x + v2.x,
-                         v1.y + v2.y,
-                         v1.z + v2.z};
+    return  vec3{v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
 __host__ __device__  vec3 operator - (vec3 v1, vec3 v2) {
@@ -62,9 +67,7 @@ __host__ __device__  double len(vec3 v) {
 
 __host__ __device__  vec3 norm(vec3 v) {
     double num = len(v);
-    return vec3{v.x / num,
-                        v.y / num,
-                        v.z / num};
+    return vec3{v.x / num, v.y / num, v.z / num};
 }
 
 __host__ __device__ vec3 crossing(vec3 v1, vec3 v2) {
@@ -256,13 +259,13 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
     }
 }
 
-void hexahedron(vec3 center, double r, vec3 color, vector<polygon> &polygons) { // ++++++
-    // cout << "Creating hexahedron\n";
+void hexahedron(vec3 center, double r, vec3 color, std::vector<polygon> &polygons) { // ++++++
+    // std::cout << "Creating hexahedron\n";
 
     color = normalise_color(color);
 
     // Create all vertices
-    vector<vec3> vertices(8);
+    std::vector<vec3> vertices(8);
 
     vec3 point_a {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
     vec3 point_b {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
@@ -287,10 +290,10 @@ void hexahedron(vec3 center, double r, vec3 color, vector<polygon> &polygons) { 
     polygons.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
     polygons.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
     polygons.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
-    // cout << "Creating hexahedron done\n";
+    // std::cout << "Creating hexahedron done\n";
 }
 
-void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygons) {
+void icosahedron(vec3 center, double radius, vec3 color, std::vector<polygon> &polygons) {
     color = normalise_color(color);
 
     double atctan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
@@ -298,7 +301,7 @@ void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygo
     double segment_angle = M_PI * 72 / 180;
     double current_angle = 0.0;
 
-    vector<vec3> vertices(12);
+    std::vector<vec3> vertices(12);
     vertices[0] = {0, radius, 0};
     vertices[11] = {0, -radius, 0};
 
@@ -349,14 +352,14 @@ void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygo
     polygons.push_back({vertices[11], vertices[6], vertices[10], color});
 }
 
-void dodecahedron(vec3 center, double r, vec3 color, vector<polygon> &polygons) { // +++++++
-    // cout << "Creating dodecahedron\n";
+void dodecahedron(vec3 center, double r, vec3 color, std::vector<polygon> &polygons) { // +++++++
+    // std::cout << "Creating dodecahedron\n";
 
     color = normalise_color(color);
     double a = (1 + sqrt(5)) / 2;
     double b = 2 / (1 + sqrt(5));
     // 20 vertices and 12 * 3 polygons (because pentagon == 3 triangles)
-    vector<vec3> vertices {{-b, 0, a} ,
+    std::vector<vec3> vertices {{-b, 0, a} ,
                                    { b, 0, a} ,
                                    {-1, 1, 1} ,
                                    { 1, 1, 1} ,
@@ -429,12 +432,12 @@ void dodecahedron(vec3 center, double r, vec3 color, vector<polygon> &polygons) 
     polygons.push_back({vertices[17], vertices[13], vertices[19], color});
     polygons.push_back({vertices[13], vertices[14], vertices[18], color});
 
-    // cout << "Creating dodecahedron done\n";
+    // std::cout << "Creating dodecahedron done\n";
 }
 
 void scene(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color,
-           vector<polygon> &polygons) {
-    // cout << "Creating scene\n";
+           std::vector<polygon> &polygons) {
+    // std::cout << "Creating scene\n";
     color = normalise_color(color);
     polygons.push_back(polygon{a, b, c, color});
     polygons.push_back(polygon{c, d, a, color});
@@ -453,247 +456,200 @@ int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
 //    cerr << "Allocate pixels\n";
     // Allocating on gpu
     uchar4* gpu_pixels;
-    CUDA_ERROR(cudaMalloc((uchar4**)(&gpu_pixels), w * h * sizeof(uchar4)));
-    CUDA_ERROR(cudaMemcpy(gpu_pixels, pixels, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((uchar4**)(&gpu_pixels), w * h * sizeof(uchar4)));
+    CSC(cudaMemcpy(gpu_pixels, pixels, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
 //    cerr << "Allocate ssaa pixels\n";
     uchar4* gpu_pixels_ssaa;
-    CUDA_ERROR(cudaMalloc((uchar4**)(&gpu_pixels_ssaa), ssaa_w * ssaa_h * sizeof(uchar4)));
-    CUDA_ERROR(cudaMemcpy(gpu_pixels_ssaa, pixels_ssaa, ssaa_w * ssaa_h * sizeof(uchar4), cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((uchar4**)(&gpu_pixels_ssaa), ssaa_w * ssaa_h * sizeof(uchar4)));
+    CSC(cudaMemcpy(gpu_pixels_ssaa, pixels_ssaa, ssaa_w * ssaa_h * sizeof(uchar4), cudaMemcpyHostToDevice));
 //    cerr << "Allocate polygons\n";
     polygon* gpu_polygons;
-    CUDA_ERROR(cudaMalloc((polygon**)(&gpu_polygons), n * sizeof(polygon)));
-    CUDA_ERROR(cudaMemcpy(gpu_polygons, polygons, n * sizeof(polygon), cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((polygon**)(&gpu_polygons), n * sizeof(polygon)));
+    CSC(cudaMemcpy(gpu_polygons, polygons, n * sizeof(polygon), cudaMemcpyHostToDevice));
 //    cerr << "Start render\n";
     // Rendering
     render_gpu <<< 128, 128 >>> (p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_polygons, n);
     cudaThreadSynchronize();
-    CUDA_ERROR(cudaGetLastError());
+    CSC(cudaGetLastError());
 //    cerr << "Start ssaa\n";
     // Ssaa smoothing algo
     ssaa_gpu <<< 128, 128 >>> (gpu_pixels, w, h, ssaa_multiplier, gpu_pixels_ssaa);
     cudaThreadSynchronize();
-    CUDA_ERROR(cudaGetLastError());
-    CUDA_ERROR(cudaMemcpy(pixels, gpu_pixels, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
+    CSC(cudaGetLastError());
+    CSC(cudaMemcpy(pixels, gpu_pixels, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
 
     // Free memory
-    CUDA_ERROR(cudaFree(gpu_pixels));
-    CUDA_ERROR(cudaFree(gpu_pixels_ssaa));
-    CUDA_ERROR(cudaFree(gpu_polygons));
+    CSC(cudaFree(gpu_pixels));
+    CSC(cudaFree(gpu_pixels_ssaa));
+    CSC(cudaFree(gpu_polygons));
 
     return 0;
 }
 
 int main(int argc, char* argv[]) {
-    string mode;
-    if (argv[1])
-        mode = argv[1];
-    bool is_gpu = true;
+    std::string arg = argv[1];
 
-    if (argc > 2) {
-        cout << "Incorrect params. Please use '--help' for help\n";
+    if (arg == "--default") {
+        std::cout << "100" << "\n";
+        std::cout <<"./out" << "\n";
+        std::cout << "640 480 120" << "\n";
+        std::cout << "7.0 3.0 0.0 2.0 1.0 2.0 6.0 1.0 0.0 0.0" << "\n";
+        std::cout << "2.0 0.0 0.0 0.5 0.1 1.0 4.0 1.0 0.0 0.0" << "\n";
+        std::cout << "4.0 4.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0 0.0" << "\n";
+        std::cout << "1.0 1.0 0.0 1.0 1.0 0.0 1.5 0.0 0.0 0.0" << "\n";
+        std::cout << "-2.5 -2.5 0.0 0.0 1.0 1.0 1.75 0.0 0.0 0.0" << "\n";
+        std::cout << "-10.0 -10.0 -1.0 -10.0 10.0 -1.0 10.0 10.0 -1.0 10.0 -10.0 -1.0 temp 0.0 0.9 0.0 0.5" << "\n";
+        std::cout << "1" << "\n";
+        std::cout << "100 100 100 1.0 1.0 1.0" << "\n";
+        std::cout << "1 3" << "\n";
         return 0;
     }
 
-    if (argc == 1 || mode == "--gpu")
-        is_gpu = true;
+    bool gpu_mode = argc == 1 || arg == "--gpu";
 
-    if (mode == "--cpu")
-        is_gpu = false;
-
-    if (mode == "--default") {
-        cout << "10\n"
-                "./frames_data\n"
-                "640 480 120\n"
-                "7.0 3.0 0.0 2.0 1.0 2.0 6.0 1.0 0.0 0.0\n"
-                "2.0 0.0 0.0 0.5 0.1 1.0 4.0 1.0 0.0 0.0\n"
-                "4.0 4.0 0.0 0.5 0.0 1.0 2.0 0.0 0.0 0.0\n"
-                "1.0 1.0 0.0 0.5 1.0 0.0 2.0 0.0 0.0 0.0\n"
-                "-2.5 -2.5 0.0 0.5 1.0 1.0 2.0 0.0 0.0 0.0\n"
-                "-10.0 -10.0 -1.0 -10.0 10.0 -1.0 10.0 10.0 -1.0 10.0 -10.0 -1.0 temp 0.0 0.9 0.0 0.5\n"
-                "1\n"
-                "100 100 100 1.0 1.0 1.0\n"
-                "1 3\n";
-        return 0;
-    }
-
-    if (mode == "--help") {
-        cout << "<---------------   HELP   --------------->\n"
-                "Start program without args will cause computation in gpu mode\n"
-                "--cpu     For computation with using cpu\n"
-                "--gpu     For computation with using gpu\n"
-                "--default Print best configuration for input data\n"
-                "--help    For help\n"
-                "<---------------END OF HELP--------------->\n";
-        return 0;
-    }
-
-    int total_frames, width, height, fov;
-    string path_to_frames;
-
-    double r_0c, z_0c, phi_0c;
-    double A_rc, A_zc;
-    double w_rc, w_zc, w_phic;
-    double p_rc, p_zc;
-
-    double r_0v, z_0v, phi_0v;
-    double A_rv, A_zv;
-    double w_rv, w_zv, w_phiv;
-    double p_rv, p_zv;
-
-    vec3 center, color;
-    double radius;
-
-    string unused;
-
-    vec3 scene_a, scene_b, scene_c, scene_d;
-    vec3 light_pos, light_col;
-
-    vector<polygon> polygons;
-    polygon *polygons_as_array;
-    uchar4 *pixels = nullptr;
-    uchar4 *pixels_ssaa = nullptr;
-
-
-    int n_lights; // Should be 1 (1 light)
-    int recursion_step; // Should be 1 (unused)
-    int ssaa_multiplier;
+    std::string temp;
 
     // Frames
-    cin >> total_frames;
-    cin >> path_to_frames;
-    cin >> width >> height >> fov;
+    int frames_count;
+    std::cin >> frames_count;
+    std::string path_to_frames;
+    std::cin >> path_to_frames;
+    int w;
+    int h;
+    int view_angle;
+    std::cin >> w >> h >> view_angle;
 
     // Camera trajectory
-    cin >> r_0c >> z_0c >> phi_0c;
-    cin >> A_rc >> A_zc;
-    cin >> w_rc >> w_zc >> w_phic;
-    cin >> p_rc >> p_zc;
+    double r0c;
+    double z0c;
+    double phi0c;
+    std::cin >> r0c >> z0c >> phi0c;
+    double Arc;
+    double Azc;
+    std::cin >> Arc >> Azc;
+    double omegaRc;
+    double omegaZc;
+    double omegaPhiC;
+    std::cin >> omegaRc >> omegaZc >> omegaPhiC;
+    double pRc;
+    double pZc;
+    std::cin >> pRc >> pZc;
 
-//    cerr << r_0c << " " << z_0c << " " << phi_0c << "\n";
-//    cerr << A_rc << " " << A_zc << "\n";
-//    cerr << w_rc << " " << w_zc<< " "  << w_phic << "\n";
-//    cerr << p_rc << " " << p_zc << "\n";
+    double r0v;
+    double z0v;
+    double phi0v;
+    std::cin >> r0v >> z0v >> phi0v;
+    double Arv;
+    double Azv;
+    std::cin >> Arv >> Azv;
+    double omegaRv;
+    double omegaZv;
+    double omegaPhiV;
+    std::cin >> omegaRv >> omegaZv >> omegaPhiV;
+    double pRv;
+    double pZv;
+    std::cin >> pRv >> pZv;
 
-    cin >> r_0v >> z_0v >> phi_0v;
-    cin >> A_rv >> A_zv;
-    cin >> w_rv >> w_zv >> w_phiv;
-    cin >> p_rv >> p_zv;
-
-//    cerr << r_0v << " " << z_0v << " " << phi_0v << "\n";
-//    cerr << A_rv << " " << A_zv << "\n";
-//    cerr << w_rv << " " << w_zv << " " << w_phiv << "\n";
-//    cerr << p_rv << " " << p_zv << "\n";
 
     // Figures params with creating
-    cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
-    hexahedron(center, radius, color, polygons);
-    cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
-    icosahedron(center, radius, color, polygons);
-    cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
-    dodecahedron(center, radius, color, polygons);
+    vec3 c_verticles;
+    vec3 col_values;
+    double radius;
+    std::vector<polygon> polygons;
+    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z >> radius >> temp >> temp >> temp;
+    hexahedron(c_verticles, radius, col_values, polygons);
+    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z >> radius >> temp >> temp >> temp;
+    icosahedron(c_verticles, radius, col_values, polygons);
+    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z >> radius >> temp >> temp >> temp;
+    dodecahedron(c_verticles, radius, col_values, polygons);
 
     // Scene
-    cin >> scene_a.x >> scene_a.y >> scene_a.z;
-    cin >> scene_b.x >> scene_b.y >> scene_b.z;
-    cin >> scene_c.x >> scene_c.y >> scene_c.z;
-    cin >> scene_d.x >> scene_d.y >> scene_d.z;
-
-    cin >> unused;
-    cin >> color.x >> color.y >> color.z;
-    cin >> unused;
-    scene(scene_a, scene_b, scene_c, scene_d, color, polygons);
+    vec3 floor_first_point;
+    vec3 floor_second_point;
+    vec3 floor_third_point;
+    vec3 floor_fourth_point;
+    std::cin >> floor_first_point.x >> floor_first_point.y >> floor_first_point.z;
+    std::cin >> floor_second_point.x >> floor_second_point.y >> floor_second_point.z;
+    std::cin >> floor_third_point.x >> floor_third_point.y >> floor_third_point.z;
+    std::cin >> floor_fourth_point.x >> floor_fourth_point.y >> floor_fourth_point.z;
+    std::cin >> temp >> col_values.x >> col_values.y >> col_values.z >> temp;
+    scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, polygons);
 
     // Lights
-    cin >> n_lights;
-    cin >> light_pos.x >> light_pos.y >> light_pos.z;
-    cin >> light_col.x >> light_col.y >> light_col.z;
+    int n_lights;
+    vec3 light_pos;
+    vec3 light_col;
+    std::cin >> n_lights;
+    std::cin >> light_pos.x >> light_pos.y >> light_pos.z >> light_col.x >> light_col.y >> light_col.z;
 
-    // Recursion
-    cin >> recursion_step;
-//    cerr << recursion_step << "\n";
+    int rec; // Should be 1 (unused)
+    int rays_squrt;
+    std::cin >> rec >> rays_squrt;
 
-    // SSAA params
-    cin >> ssaa_multiplier;
-//    cerr << ssaa_multiplier << "\n";
-
-    int ssaa_width = width * ssaa_multiplier;
-    int ssaa_height = height * ssaa_multiplier;
-
-    pixels = new uchar4[ssaa_width * ssaa_height];
-    pixels_ssaa = new uchar4[ssaa_width * ssaa_height]; // cpu
-
-    polygons_as_array = polygons.data();
-    int total_polygons = polygons.size();
-
-//    for (int i = 0; i < polygons.size(); ++i) {
-//        cerr << "p1:" << polygons[i].p1.x << " " << polygons[i].p1.y << " " << polygons[i].p1.z << "\n";
-//        cerr << "p2:" << polygons[i].p2.x << " " << polygons[i].p2.y << " " << polygons[i].p2.z << "\n";
-//        cerr << "p3:" << polygons[i].p3.x << " " << polygons[i].p3.y << " " << polygons[i].p3.z << "\n";
-//        cerr << "color:" << polygons[i].color.x << " " << polygons[i].color.y << " " << polygons[i].color.z << "\n";
-//    }
-
-    cout << "Start rendering. Total polygons: " << total_polygons << ". Frame size: " << width << "x" << height;
-    cout << ". Total frames: " << total_frames << "\n";
-    cout << "|\tIteration number\t|\t time in ms\t|\ttotal rays |\n";
-
-    double r_c, z_c, phi_c , r_v, z_v, phi_v;
-    vec3 p_c, p_v;
     int sum_of_rays;
 
     double total_duration_time = 0;
-    for (int i = 0; i < total_frames; i++) {
-        auto start = chrono::steady_clock::now();
-        double time_step = 2.0 * M_PI / total_frames;
-        double cur_time = i * time_step;
+
+    polygon* polygons_as_array;
+    polygons_as_array = polygons.data();
+    uchar4* pixels = new uchar4[w * h * rays_squrt * rays_squrt];
+    uchar4* pixels_ssaa = new uchar4[w * h * rays_squrt * rays_squrt];
+
+    std::cout << "Polygons count: " << polygons.size() << "\n"
+    std::cout << "Image size: " << w << " " << h << "\n";
+    std::cout << "Frames summ: " << frames_count << "\n";
+
+    for (int i = 0; i < frames_count; i++) {
+        auto time_start = chrono::steady_clock::now();
+        double t = 2.0 * i * M_PI / frames_count;
 
         // Movement
-        r_c = r_0c + A_rc * sin(w_rc * cur_time + p_rc);
-        z_c = z_0c + A_zc * sin(w_zc * cur_time + p_zc);
-        phi_c = phi_0c + w_phic * cur_time;
+        double r_c = r0c + Arc * sin(omegaRc * t + pRc);
+        double z_c = z0c + Azc * sin(omegaZc * t + pZc);
+        double phi_c = phi0c + omegaPhiC * t;
 
-        r_v = r_0v + A_rv * sin(w_rv * cur_time + p_rv);
-        z_v = z_0v + A_zv * sin(w_zv * cur_time + p_zv);
-        phi_v = phi_0v + w_phiv * cur_time;
+        double r_v = r0v + Arv * sin(omegaRv * t + pRv);
+        double z_v = z0v + Azv * sin(omegaZv * t + pZv);
+        double phi_v = phi0v + omegaPhiV * t;
 
-        p_c = { r_c * cos(phi_c), r_c * sin(phi_c), z_c };
-        p_v = { r_v * cos(phi_v), r_v * sin(phi_v), z_v };
+        vec3 p_c = { r_c * cos(phi_c),
+                    r_c * sin(phi_c),
+                    z_c };
+        vec3 p_v = { r_v * cos(phi_v),
+                    r_v * sin(phi_v),
+                    z_v };
 
         // Total sum of rays (will be the same coz of recursion)
-        sum_of_rays = ssaa_width * ssaa_height;
+        sum_of_rays = w * rays_squrt * h * rays_squrt;
 
         int res;
-        if (is_gpu)
-            res = gpu_mode(p_c, p_v, width, ssaa_width, height, ssaa_height, (double)fov, pixels, pixels_ssaa,
-                           light_pos, light_col, polygons_as_array, total_polygons, ssaa_multiplier);
+        if (gpu_mode)
+            res = gpu_mode(p_c, p_v, w, w * rays_squrt, h, h * rays_squrt, (double)view_angle, pixels, pixels_ssaa,
+                           light_pos, light_col, polygons_as_array, polygons.size(), rays_squrt);
         else
-            res = cpu_mode(p_c, p_v, width, ssaa_width, height, ssaa_height, (double)fov, pixels, pixels_ssaa,
-                           light_pos, light_col, polygons_as_array, total_polygons, ssaa_multiplier);
+            res = cpu_mode(p_c, p_v, w, w * rays_squrt, h, h * rays_squrt, (double)view_angle, pixels, pixels_ssaa,
+                           light_pos, light_col, polygons_as_array, polygons.size(), rays_squrt);
         if (res)
-            cout << "An error occurred. Check output\n";
+            std::cout << "An error occurred. Check output\n";
 
         auto end = chrono::steady_clock::now();
-        cout << "|\tIteration " << i + 1 << " of " << total_frames << "\t|\t";
-        double iteration_time = ((double)chrono::duration_cast<chrono::microseconds>(end - start).count()) / 1000.0;
+        std::cout << "|\tIteration " << i + 1 << " of " << frames_count << "\t|\t";
+        double iteration_time = ((double)chrono::duration_cast<chrono::microseconds>(end - time_start).count()) / 1000.0;
         total_duration_time += iteration_time;
-        cout << iteration_time << "ms\t|\t";
-        cout << sum_of_rays << "\t\t|\n";
+        std::cout << iteration_time << "ms\t|\t";
+        std::cout << sum_of_rays << "\t\t|\n";
 
-        string frame_name = path_to_frames + "/" + to_string(i) + ".data";
-        FILE* f = fopen(frame_name.c_str(), "wb");
-//        fwrite(&ssaa_width, sizeof(int), 1, f);
-//        fwrite(&ssaa_height, sizeof(int), 1, f);
-//        fwrite(pixels_ssaa, sizeof(uchar4), ssaa_width * ssaa_height, f);
-        fwrite(&width, sizeof(int), 1, f); // тут падает
-        fwrite(&height, sizeof(int), 1, f);
-        fwrite(pixels, sizeof(uchar4), width * height, f);
-        fclose(f);
+        replace(path_to_frames, '%d', to_string(i));
+        FILE* fp = fopen(path_to_frames.c_str(), "wb");
+        fwrite(&w, sizeof(int), 1, fp); // тут падает
+        fwrite(&h, sizeof(int), 1, fp);
+        fwrite(pixels, sizeof(uchar4), w * h, fp);
+        fclose(fp);
     }
 
-    if (pixels)
-        delete[] pixels;
-    if (pixels_ssaa)
-        delete[] pixels_ssaa;
+    delete[] pixels;
+    delete[] pixels_ssaa;
 
-    cout << "Done with total duration: " << total_duration_time << "ms\n";
+    std::cout << "Done with total duration: " << total_duration_time << "ms\n";
     return 0;
 }
