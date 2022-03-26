@@ -290,29 +290,29 @@ void hexahedron(vector_cords center, double r, vector_cords color, vector<polygo
     // cout << "Creating hexahedron done\n";
 }
 
-void icosahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
+void icosahedron(vector_cords center, double radius, vector_cords color, vector<polygon> &polygons) {
     double atctan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
-    double magic_angle = M_PI * atctan_1_2 / 180;
+    double angle = M_PI * atctan_1_2 / 180;
     double segment_angle = M_PI * 72 / 180;
     double current_angle = 0.0;
 
     vector<vector_cords> vertices(12);
-    vertices[0] = {0, r, 0};
-    vertices[11] = {0, -r, 0};
+    vertices[0] = {0, radius, 0};
+    vertices[11] = {0, -radius, 0};
 
     for (int i = 1; i < 6; i++) {
-        vertices[i] = {r * sin(current_angle) * cos(magic_angle),
-                       r * sin(magic_angle),
-                       r * cos(current_angle) * cos(magic_angle)};
+        vertices[i] = {radius * sin(current_angle) * cos(angle),
+                       radius * sin(angle),
+                       radius * cos(current_angle) * cos(angle)};
         current_angle += segment_angle;
     }
 
     current_angle = M_PI * 36 / 180;
 
     for (int i = 6; i < 11; i++) {
-        vertices[i] = {r * sin(current_angle) * cos(-magic_angle),
-                       r * sin(-magic_angle),
-                       r * cos(current_angle) * cos(-magic_angle)};
+        vertices[i] = {radius * sin(current_angle) * cos(-angle),
+                       radius * sin(-angle),
+                       radius * cos(current_angle) * cos(-angle)};
         current_angle += segment_angle;
     }
 
@@ -499,17 +499,17 @@ int main(int argc, char* argv[]) {
         is_gpu = false;
 
     if (mode == "--default") {
-        cout << "100\n"
+        cout << "10\n"
                 "./frames_data\n"
                 "640 480 120\n"
-                "7.0 3.0 0.0    2.0 1.0    2.0 6.0 1.0     0.0 0.0\n"
-                "2.0 0.0 0.0    0.5 0.1    1.0 4.0 1.0     0.0 0.0\n"
-                "4.0 4.0 0.0    1.0 0.0 1.0    2.0     0.0 0.0 0.0\n"
-                "1.0 1.0 0.0    1.0 1.0 0.0    2.0     0.0 0.0 0.0\n"
-                "-2.5 -2.5 0.0    0.0 1.0 1.0    2.0     0.0 0.0 0.0\n"
-                "-10.0 -10.0 -1.0    -10.0 10.0 -1.0    10.0 10.0 -1.0    10.0 -10.0 -1.0    ./folder    0.0 0.9 0.0    0.5\n"
+                "7.0 3.0 0.0 2.0 1.0 2.0 6.0 1.0 0.0 0.0\n"
+                "2.0 0.0 0.0 0.5 0.1 1.0 4.0 1.0 0.0 0.0\n"
+                "4.0 4.0 0.0 0.5 0.0 1.0 2.0 0.0 0.0 0.0\n"
+                "1.0 1.0 0.0 0.5 0.0 1.0 2.0 0.0 0.0 0.0\n"
+                "-2.5 -2.5 0.0 0.5 1.0 1.0 2.0 0.0 0.0 0.0\n"
+                "-10.0 -10.0 -1.0 -10.0 10.0 -1.0 10.0 10.0 -1.0 10.0 -10.0 -1.0 temp 0.0 0.9 0.0 0.5\n"
                 "1\n"
-                "100 100 100    1.0 1.0 1.0\n"
+                "100 100 100 1.0 1.0 1.0\n"
                 "1 3\n";
         return 0;
     }
