@@ -487,7 +487,8 @@ int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
 }
 
 int main(int argc, char* argv[]) {
-    std::string arg = argv[1];
+    std::string arg = '';
+    if (argv[1]) arg = argv[1];
 
     if (arg == "--default") {
         std::cout << "100" << "\n";
