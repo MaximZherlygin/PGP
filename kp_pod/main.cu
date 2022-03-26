@@ -356,40 +356,41 @@ void icosahedron(vec3 center, double radius, vec3 color, std::vector <triangle> 
 void dodecahedron(vec3 center, double r, vec3 color, std::vector<triangle>& trigs) { // +++++++
 
     color = normalise_color(color);
+    double a = (1 + sqrt(5)) / 2;
+    double b = 2 / (1 + sqrt(5));
 
-    std::vector <vec3> vertices {{-2 / (1 + sqrt(5)) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
-                                {2 / (1 + sqrt(5)) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
-                                {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
-                                {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
-                                {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
-                                {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
-                                {0, (-(1 + sqrt(5)) / 2) / sqrt(3), 2 / (1 + sqrt(5)) / sqrt(3)},
-                                {0, ((1 + sqrt(5)) / 2) / sqrt(3),  2 / (1 + sqrt(5)) / sqrt(3)},
-                                {(-(1 + sqrt(5)) / 2) / sqrt(3), -2 / (1 + sqrt(5)) / sqrt(3), 0},
-                                {(-(1 + sqrt(5)) / 2) / sqrt(3), 2 / (1 + sqrt(5)) / sqrt(3), 0},
-                                {((1 + sqrt(5)) / 2) / sqrt(3),  2 / (1 + sqrt(5)) / sqrt(3), 0},
-                                {((1 + sqrt(5)) / 2) / sqrt(3),  -2 / (1 + sqrt(5)) / sqrt(3), 0},
-                                {0, (-(1 + sqrt(5)) / 2) / sqrt(3), -2 / (1 + sqrt(5)) / sqrt(3)},
-                                {0, ((1 + sqrt(5)) / 2) / sqrt(3),  -2 / (1 + sqrt(5)) / sqrt(3)},
-                                {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
-                                {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
-                                {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
-                                {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
-                                {2 / (1 + sqrt(5)) / sqrt(3),  0, (-(1 + sqrt(5)) / 2) / sqrt(3)},
-                                {-2 / (1 + sqrt(5)) / sqrt(3), 0, (-(1 + sqrt(5)) / 2) / sqrt(3)}};
+    std::vector<vec3> vertices {{-b, 0, a} ,
+                                { b, 0, a} ,
+                                {-1, 1, 1} ,
+                                { 1, 1, 1} ,
+                                { 1, -1, 1} ,
+                                {-1, -1, 1} ,
+                                { 0, -a, b} ,
+                                { 0, a, b} ,
+                                {-a, -b, 0} ,
+                                {-a, b, 0} ,
+                                { a, b, 0} ,
+                                { a, -b, 0} ,
+                                { 0, -a, -b} ,
+                                { 0, a, -b} ,
+                                { 1, 1, -1} ,
+                                { 1, -1, -1} ,
+                                {-1, -1, -1} ,
+                                {-1, 1, -1} ,
+                                { b, 0, -a} ,
+                                {-b, 0, -a}
+    };
 
+    for (auto &j: vertices) {
+        j.x /= sqrt(3);
+        j.y /= sqrt(3);
+        j.z /= sqrt(3);
+    }
 
-//    // Shifting
-//    for (auto &j: vertices) {
-//        j.x = j.x * r + center.x;
-//        j.y = j.y * r + center.y;
-//        j.z = j.z * r + center.z;
-//    }
-
-    for (int i = 0; i < vertices.size(); i++) {
-        vertices[i].x *= r + center.x;
-        vertices[i].y *= r + center.y;
-        vertices[i].z *= r + center.z;
+    for (auto &j: vertices) {
+        j.x = j.x * r + center.x;
+        j.y = j.y * r + center.y;
+        j.z = j.z * r + center.z;
     }
 
     trigs.push_back({vertices[4], vertices[0], vertices[6], color});
