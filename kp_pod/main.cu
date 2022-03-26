@@ -355,89 +355,89 @@ void icosahedron(vec3 center, double radius, vec3 color, std::vector <triangle> 
 
 void dodecahedron(const vec3 center, const double r, vec3 color, std::vector<triangle>& trigs) { // +++++++
 
-    color = normalise_color(color);
+    color.x *= 255.0;
+    color.y *= 255.0;
+    color.z *= 255.0;
 
-    std::vector<vec3> vertices {{-(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
-                                {(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
-                                {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
-                                {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
-                                {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
-                                {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
-                                {0, -((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3)},
-                                {0, ((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3)},
-                                {-((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3), 0},
-                                {-((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3), 0},
-                                {((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3), 0},
-                                {((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3), 0},
-                                {0, -((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3)},
-                                {0, ((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3)},
-                                {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
-                                {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
-                                {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
-                                {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
-                                {(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)},
-                                {-(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)}
-    };
-//
-//    for (auto &j: vertices) {
-//        j.x /= sqrt(3);
-//        j.y /= sqrt(3);
-//        j.z /= sqrt(3);
-//    }
+    std::vector<vec3> points {{-(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
+                              {(2 / (1 + sqrt(5))) / sqrt(3),  0, ((1 + sqrt(5)) / 2) / sqrt(3)},
+                              {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                              {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                              {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                              {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                              {0, -((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3)},
+                              {0, ((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3)},
+                              {-((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3), 0},
+                              {-((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3), 0},
+                              {((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3), 0},
+                              {((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3), 0},
+                              {0, -((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3)},
+                              {0, ((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3)},
+                              {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                              {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                              {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                              {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                              {(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)},
+                              {-(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)}};
 
-    for (auto &j: vertices) {
-        j.x = j.x * r + center.x;
-        j.y = j.y * r + center.y;
-        j.z = j.z * r + center.z;
+    for (int i = 0; i < points.size(); i++) {
+        points[i].x *= r;
+        points[i].x += center.x;
+
+        points[i].y *= r;
+        points[i].y += center.y;
+
+        points[i].y *= r;
+        points[i].y += center.y;
     }
 
-    trigs.push_back({vertices[4], vertices[0], vertices[6], color});
-    trigs.push_back({vertices[0], vertices[5], vertices[6], color});
-    trigs.push_back({vertices[0], vertices[4], vertices[1], color});
+    trigs.push_back({points[4], points[0], points[6], color});
+    trigs.push_back({points[4], points[1], points[0], color});
+    trigs.push_back({points[0], points[5], points[6], color});
 
-    trigs.push_back({vertices[0], vertices[3], vertices[7], color});
-    trigs.push_back({vertices[2], vertices[0], vertices[7], color});
-    trigs.push_back({vertices[0], vertices[1], vertices[3], color});
+    trigs.push_back({points[7], points[0], points[3], color});
+    trigs.push_back({points[7], points[2], points[0], color});
+    trigs.push_back({points[0], points[1], points[3], color});
 
-    trigs.push_back({vertices[10], vertices[1], vertices[11], color});
-    trigs.push_back({vertices[3], vertices[1], vertices[10], color});
-    trigs.push_back({vertices[1], vertices[4], vertices[11], color});
+    trigs.push_back({points[10], points[1], points[11], color});
+    trigs.push_back({points[10], points[3], points[1], color});
+    trigs.push_back({points[1], points[4], points[11], color});
 
-    trigs.push_back({vertices[5], vertices[0], vertices[8], color});
-    trigs.push_back({vertices[0], vertices[2], vertices[9], color});
-    trigs.push_back({vertices[8], vertices[0], vertices[9], color});
+    trigs.push_back({points[8], points[0], points[9], color});
+    trigs.push_back({points[8], points[5], points[0], color});
+    trigs.push_back({points[0], points[2], points[9], color});
 
-    trigs.push_back({vertices[5], vertices[8], vertices[16], color});
-    trigs.push_back({vertices[6], vertices[5], vertices[12], color});
-    trigs.push_back({vertices[12], vertices[5], vertices[16], color});
+    trigs.push_back({points[12], points[5], points[16], color});
+    trigs.push_back({points[12], points[6], points[5], color});
+    trigs.push_back({points[5], points[8], points[16], color});
 
-    trigs.push_back({vertices[4], vertices[12], vertices[15], color});
-    trigs.push_back({vertices[4], vertices[6], vertices[12], color});
-    trigs.push_back({vertices[11], vertices[4], vertices[15], color});
+    trigs.push_back({points[4], points[6], points[12], color});
+    trigs.push_back({points[15], points[4], points[12], color});
+    trigs.push_back({points[15], points[11], points[4], color});
 
-    trigs.push_back({vertices[2], vertices[13], vertices[17], color});
-    trigs.push_back({vertices[2], vertices[7], vertices[13], color});
-    trigs.push_back({vertices[9], vertices[2], vertices[17], color});
+    trigs.push_back({points[2], points[7], points[13], color});
+    trigs.push_back({points[17], points[2], points[13], color});
+    trigs.push_back({points[17], points[9], points[2], color});
 
-    trigs.push_back({vertices[13], vertices[3], vertices[14], color});
-    trigs.push_back({vertices[7], vertices[3], vertices[13], color});
-    trigs.push_back({vertices[3], vertices[10], vertices[14], color});
+    trigs.push_back({points[3], points[10], points[14], color});
+    trigs.push_back({points[13], points[3], points[14], color});
+    trigs.push_back({points[13], points[7], points[3], color});
 
-    trigs.push_back({vertices[8], vertices[17], vertices[19], color});
-    trigs.push_back({vertices[16], vertices[8], vertices[19], color});
-    trigs.push_back({vertices[8], vertices[9], vertices[17], color});
+    trigs.push_back({points[8], points[9], points[17], color});
+    trigs.push_back({points[19], points[8], points[17], color});
+    trigs.push_back({points[19], points[16], points[8], color});
 
-    trigs.push_back({vertices[14], vertices[11], vertices[18], color});
-    trigs.push_back({vertices[11], vertices[15], vertices[18], color});
-    trigs.push_back({vertices[10], vertices[11], vertices[14], color});
+    trigs.push_back({points[11], points[15], points[18], color});
+    trigs.push_back({points[14], points[11], points[18], color});
+    trigs.push_back({points[14], points[10], points[11], color});
 
-    trigs.push_back({vertices[12], vertices[19], vertices[18], color});
-    trigs.push_back({vertices[15], vertices[12], vertices[18], color});
-    trigs.push_back({vertices[12], vertices[16], vertices[19], color});
+    trigs.push_back({points[12], points[16], points[19], color});
+    trigs.push_back({points[18], points[12], points[19], color});
+    trigs.push_back({points[18], points[15], points[12], color});
 
-    trigs.push_back({vertices[19], vertices[13], vertices[18], color});
-    trigs.push_back({vertices[17], vertices[13], vertices[19], color});
-    trigs.push_back({vertices[13], vertices[14], vertices[18], color});
+    trigs.push_back({points[13], points[14], points[18], color});
+    trigs.push_back({points[19], points[13], points[18], color});
+    trigs.push_back({points[19], points[17], points[13], color});
 
     // std::cout << "Creating dodecahedron done\n";
 }
