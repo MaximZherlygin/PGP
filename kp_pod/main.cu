@@ -225,7 +225,7 @@ void ssaa_cpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
             pixels[y * w + x].x = (uchar)(int)(mid_pixel.x / (coeff * coeff));
             pixels[y * w + x].y = (uchar)(int)(mid_pixel.y / (coeff * coeff));
             pixels[y * w + x].z = (uchar)(int)(mid_pixel.z / (coeff * coeff));
-            pixels[y * w + x].w = 0;
+            pixels[y * w + x].w = mid_pixel.w;
         }
     }
 }
@@ -251,7 +251,7 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
             pixels[y * w + x].x = (uchar)(mid.x / (coeff * coeff));
             pixels[y * w + x].y = (uchar)(mid.y / (coeff * coeff));
             pixels[y * w + x].z = (uchar)(mid.z / (coeff * coeff));
-            pixels[y * w + x].w = 0;
+            pixels[y * w + x].w = mid.w;
         }
     }
 }
@@ -297,22 +297,22 @@ void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygo
     double current_angle = 0.0;
 
     vector<vec3> vertices(12);
-    vertices[0] = {0, 0, radius};
-    vertices[11] = {0, 0, -radius};
+    vertices[0] = {0, radius, 0};
+    vertices[11] = {0, -radius, 0};
 
     for (int i = 1; i < 6; i++) {
         vertices[i] = {radius * sin(current_angle) * cos(angle),
-                       radius * cos(current_angle) * cos(angle),
-                       radius * sin(angle)};
+                       radius * sin(angle),
+                       radius * cos(current_angle) * cos(angle)};
         current_angle += segment_angle;
     }
 
     current_angle = M_PI * 36 / 180;
 
     for (int i = 6; i < 11; i++) {
-        vertices[i] = {radius * sin(current_angle) * cos(angle),
-                       radius * cos(current_angle) * cos(angle),
-                       radius * sin(angle)};
+        vertices[i] = {radius * sin(current_angle) * cos(-angle),
+                       radius * sin(-angle),
+                       radius * cos(current_angle) * cos(-angle)};
         current_angle += segment_angle;
     }
 
@@ -584,9 +584,9 @@ int main(int argc, char* argv[]) {
 
     // Figures params with creating
     cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
-    icosahedron(center, radius, color, polygons);
-    cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
     hexahedron(center, radius, color, polygons);
+    cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
+    icosahedron(center, radius, color, polygons);
     cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
     dodecahedron(center, radius, color, polygons);
 
