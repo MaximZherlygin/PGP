@@ -1,10 +1,10 @@
 #include <iostream>
-#include <vector>
-#include <cmath>
-#include <chrono>
-#include <string>
 #include <stdio.h>
 #include <float.h>
+#include <vector>
+#include <string>
+#include <cmath>
+#include <chrono>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -654,7 +654,7 @@ int main(int argc, char* argv[]) {
 //        fwrite(&ssaa_width, sizeof(int), 1, f);
 //        fwrite(&ssaa_height, sizeof(int), 1, f);
 //        fwrite(pixels_ssaa, sizeof(uchar4), ssaa_width * ssaa_height, f);
-        fwrite(&width, sizeof(int), 1, f);
+        fwrite(&width, sizeof(int), 1, f); // тут падает
         fwrite(&height, sizeof(int), 1, f);
         fwrite(pixels, sizeof(uchar4), width * height, f);
         fclose(f);
