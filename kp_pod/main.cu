@@ -285,6 +285,7 @@ void cube(vector_cords center, double r, vector_cords color, vector<polygon> &po
     polygons.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
     polygons.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
     polygons.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
+    cout << "Creating cube done\n";
 }
 
 void octahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
@@ -316,6 +317,7 @@ void octahedron(vector_cords center, double r, vector_cords color, vector<polygo
     // 8 polygons (they are triangles)
     for(int i = 0; i < 8; i++)
         polygons.push_back({vertices[order[i][0]], vertices[order[i][1]], vertices[order[i][2]], color});
+    cout << "Creating octahedron done\n";
 }
 
 void dodecahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
@@ -397,6 +399,8 @@ void dodecahedron(vector_cords center, double r, vector_cords color, vector<poly
     polygons.push_back({vertices[19], vertices[13], vertices[18], color});
     polygons.push_back({vertices[17], vertices[13], vertices[19], color});
     polygons.push_back({vertices[13], vertices[14], vertices[18], color});
+
+    cout << "Creating dodecahedron done\n";
 }
 
 void scene(vector_cords a, vector_cords b, vector_cords c, vector_cords d, vector_cords color,
