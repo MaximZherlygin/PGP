@@ -8,6 +8,7 @@
 #include "device_launch_parameters.h"
 
 #define _USE_MATH_DEFINES // for C++
+
 #include <cmath>
 
 #define CSC(err) { \
@@ -25,36 +26,36 @@ struct vec3 {
     double z;
 };
 
-struct polygon {
+struct triangle {
     vec3 p1;
     vec3 p2;
     vec3 p3;
     vec3 color;
 };
 
-bool replace(std::string& str, const std::string& from, const std::string& to) {
+bool replace(std::string &str, const std::string &from, const std::string &to) {
     size_t start_pos = str.find(from);
-    if(start_pos == std::string::npos)
+    if (start_pos == std::string::npos)
         return false;
     str.replace(start_pos, from.length(), to);
     return true;
 }
 
 
-__host__ __device__  vec3 operator + (vec3 v1, vec3 v2) {
-    return  vec3{v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+__host__ __device__  vec3 operator+(vec3 v1, vec3 v2) {
+    return vec3{v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-__host__ __device__  vec3 operator - (vec3 v1, vec3 v2) {
-    return  vec3{v1.x - v2.x,
-                         v1.y - v2.y,
-                         v1.z - v2.z};
+__host__ __device__  vec3 operator-(vec3 v1, vec3 v2) {
+    return vec3{v1.x - v2.x,
+                v1.y - v2.y,
+                v1.z - v2.z};
 }
 
-__host__ __device__  vec3 operator * (vec3 v, double num) {
+__host__ __device__  vec3 operator*(vec3 v, double num) {
     return vec3{v.x * num,
-                        v.y * num,
-                        v.z * num};
+                v.y * num,
+                v.z * num};
 }
 
 __host__ __device__  double scal_mul(vec3 v1, vec3 v2) {
@@ -77,9 +78,9 @@ __host__ __device__ vec3 crossing(vec3 v1, vec3 v2) {
 }
 
 __host__ __device__ vec3 multiply(vec3 a, vec3 b, vec3 c, vec3 v) {
-    return { a.x * v.x + b.x * v.y + c.x * v.z,
-             a.y * v.x + b.y * v.y + c.y * v.z,
-             a.z * v.x + b.z * v.y + c.z * v.z };
+    return {a.x * v.x + b.x * v.y + c.x * v.z,
+            a.y * v.x + b.y * v.y + c.y * v.z,
+            a.z * v.x + b.z * v.y + c.z * v.z};
 }
 
 vec3 normalise_color(vec3 color) {
@@ -89,19 +90,19 @@ vec3 normalise_color(vec3 color) {
 }
 
 __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
-                                   vec3 light_color, polygon *polygons, int n) {
+                                   vec3 light_color, triangle *trigs, int n) {
     int min_value = -1;
     double ts_min;
     for (int i = 0; i < n; ++i) {
-        vec3 e1 = polygons[i].p2 - polygons[i].p1;
-        vec3 e2 = polygons[i].p3 - polygons[i].p1;
+        vec3 e1 = trigs[i].p2 - trigs[i].p1;
+        vec3 e2 = trigs[i].p3 - trigs[i].p1;
         vec3 p = crossing(dir, e2);
         double div = scal_mul(p, e1);
 
         if (fabs(div) < 1e-10)
             continue;
 
-        vec3 t = pos - polygons[i].p1;
+        vec3 t = pos - trigs[i].p1;
         double u = scal_mul(p, t) / div;
         if (u < 0.0 || u > 1.0)
             continue;
@@ -130,15 +131,15 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
     dir = norm(dir);
 
     for (int i = 0; i < n; i++) {
-        vec3 e1 = polygons[i].p2 - polygons[i].p1;
-        vec3 e2 = polygons[i].p3 - polygons[i].p1;
+        vec3 e1 = trigs[i].p2 - trigs[i].p1;
+        vec3 e2 = trigs[i].p3 - trigs[i].p1;
         vec3 p = crossing(dir, e2);
         double div = scal_mul(p, e1);
 
         if (fabs(div) < 1e-10)
             continue;
 
-        vec3 t = pos - polygons[i].p1;
+        vec3 t = pos - trigs[i].p1;
         double u = scal_mul(p, t) / div;
 
         if (u < 0.0 || u > 1.0)
@@ -158,9 +159,9 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
     }
 
     uchar4 color_min;
-    color_min.x = polygons[min_value].color.x;
-    color_min.y = polygons[min_value].color.y;
-    color_min.z = polygons[min_value].color.z;
+    color_min.x = trigs[min_value].color.x;
+    color_min.y = trigs[min_value].color.y;
+    color_min.z = trigs[min_value].color.z;
 
     color_min.x *= light_color.x;
     color_min.y *= light_color.y;
@@ -169,10 +170,10 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
     return color_min;
 }
 
-void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4* pixels, vec3 light_pos,
-                vec3 light_col, polygon* polygons, int n) {
-    double dw = (double)2.0 / (double)(w - 1.0);
-    double dh = (double)2.0 / (double)(h - 1.0);
+void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
+                vec3 light_col, triangle *trigs, int n) {
+    double dw = (double) 2.0 / (double) (w - 1.0);
+    double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
     vec3 b_z = norm(p_v - p_c);
     vec3 b_x = norm(crossing(b_z, {0.0, 0.0, 1.0}));
@@ -180,23 +181,23 @@ void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4* pixels, ve
     for (int i = 0; i < w; i++)
         for (int j = 0; j < h; j++) {
             vec3 v;
-            v.x = (double)-1.0 + dw * (double)i;
-            v.y = ((double)-1.0 + dh * (double)j) * (double)h / (double)w;
+            v.x = (double) -1.0 + dw * (double) i;
+            v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
             v.z = z;
             vec3 dir = multiply(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray_aux(p_c, norm(dir), light_pos, light_col, polygons, n);
+            pixels[(h - 1 - j) * w + i] = ray_aux(p_c, norm(dir), light_pos, light_col, trigs, n);
         }
 }
 
-__global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4* pixels,
-                           vec3 light_pos, vec3 light_col, polygon* polygons, int n) {
+__global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels,
+                           vec3 light_pos, vec3 light_col, triangle *trigs, int n) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int idy = blockDim.y * blockIdx.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
     int offsetY = blockDim.y * gridDim.y;
 
-    double dw = (double)2.0 / (double)(w - 1.0);
-    double dh = (double)2.0 / (double)(h - 1.0);
+    double dw = (double) 2.0 / (double) (w - 1.0);
+    double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
     vec3 b_z = norm(p_v - p_c);
     vec3 b_x = norm(crossing(b_z, {0.0, 0.0, 1.0}));
@@ -204,18 +205,18 @@ __global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4*
     for (int i = idx; i < w; i += offsetX)
         for (int j = idy; j < h; j += offsetY) {
             vec3 v;
-            v.x = (double)-1.0 + dw * (double)i;
-            v.y = ((double)-1.0 + dh * (double)j) * (double)h / (double)w;
+            v.x = (double) -1.0 + dw * (double) i;
+            v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
             v.z = z;
             vec3 dir = multiply(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray_aux(p_c, norm(dir), light_pos, light_col, polygons, n);
+            pixels[(h - 1 - j) * w + i] = ray_aux(p_c, norm(dir), light_pos, light_col, trigs, n);
         }
 }
 
 void ssaa_cpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            int4 mid_pixel = { 0, 0, 0, 0 };
+            int4 mid_pixel = {0, 0, 0, 0};
             for (int j = 0; j < coeff; j++) {
                 for (int i = 0; i < coeff; i++) {
                     int index = y * w * coeff * coeff + x * coeff + j * w * coeff + i;
@@ -225,9 +226,9 @@ void ssaa_cpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
                     mid_pixel.w += 0;
                 }
             }
-            pixels[y * w + x].x = (uchar)(int)(mid_pixel.x / (coeff * coeff));
-            pixels[y * w + x].y = (uchar)(int)(mid_pixel.y / (coeff * coeff));
-            pixels[y * w + x].z = (uchar)(int)(mid_pixel.z / (coeff * coeff));
+            pixels[y * w + x].x = (uchar) (int) (mid_pixel.x / (coeff * coeff));
+            pixels[y * w + x].y = (uchar) (int) (mid_pixel.y / (coeff * coeff));
+            pixels[y * w + x].z = (uchar) (int) (mid_pixel.z / (coeff * coeff));
             pixels[y * w + x].w = 0;
         }
     }
@@ -241,7 +242,7 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
 
     for (int y = idy; y < h; y += offsetY) {
         for (int x = idx; x < w; x += offsetX) {
-            int4 mid = { 0, 0, 0, 0 };
+            int4 mid = {0, 0, 0, 0};
             for (int j = 0; j < coeff; j++) {
                 for (int i = 0; i < coeff; i++) {
                     int index = y * w * coeff * coeff + x * coeff + j * w * coeff + i;
@@ -251,49 +252,49 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
                     mid.w += 0;
                 }
             }
-            pixels[y * w + x].x = (uchar)(mid.x / (coeff * coeff));
-            pixels[y * w + x].y = (uchar)(mid.y / (coeff * coeff));
-            pixels[y * w + x].z = (uchar)(mid.z / (coeff * coeff));
+            pixels[y * w + x].x = (uchar) (mid.x / (coeff * coeff));
+            pixels[y * w + x].y = (uchar) (mid.y / (coeff * coeff));
+            pixels[y * w + x].z = (uchar) (mid.z / (coeff * coeff));
             pixels[y * w + x].w = 0;
         }
     }
 }
 
-void hexahedron(vec3 center, double r, vec3 color, std::vector<polygon> &polygons) { // ++++++
+void hexahedron(vec3 center, double r, vec3 color, std::vector <triangle> &trigs) { // ++++++
     // std::cout << "Creating hexahedron\n";
 
     color = normalise_color(color);
 
     // Create all vertices
-    std::vector<vec3> vertices(8);
+    std::vector <vec3> vertices(8);
 
-    vec3 point_a {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_b {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
-    vec3 point_c {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_d {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)};
-    vec3 point_e {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_f {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
-    vec3 point_g {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_h {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)};
+    vec3 point_a{-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
+    vec3 point_b{-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
+    vec3 point_c{-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)};
+    vec3 point_d{-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)};
+    vec3 point_e{1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
+    vec3 point_f{1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
+    vec3 point_g{1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)};
+    vec3 point_h{1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)};
 
-    // 6 sides means 12 polygons of triangles
+    // 6 sides means 12 trigs of triangles
     // Create with shifting
-    polygons.push_back({point_a * r + center, point_b * r + center, point_d * r + center, color});
-    polygons.push_back({point_a * r + center, point_c * r + center, point_d * r + center, color});
-    polygons.push_back({point_b * r + center, point_f * r + center, point_h * r + center, color});
-    polygons.push_back({point_b * r + center, point_d * r + center, point_h * r + center, color});
-    polygons.push_back({point_e * r + center, point_f * r + center, point_h * r + center, color});
-    polygons.push_back({point_e * r + center, point_g * r + center, point_h * r + center, color});
-    polygons.push_back({point_a * r + center, point_e * r + center, point_g * r + center, color});
-    polygons.push_back({point_a * r + center, point_c * r + center, point_g * r + center, color});
-    polygons.push_back({point_a * r + center, point_b * r + center, point_f * r + center, color});
-    polygons.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
-    polygons.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
-    polygons.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
+    trigs.push_back({point_a * r + center, point_b * r + center, point_d * r + center, color});
+    trigs.push_back({point_a * r + center, point_c * r + center, point_d * r + center, color});
+    trigs.push_back({point_b * r + center, point_f * r + center, point_h * r + center, color});
+    trigs.push_back({point_b * r + center, point_d * r + center, point_h * r + center, color});
+    trigs.push_back({point_e * r + center, point_f * r + center, point_h * r + center, color});
+    trigs.push_back({point_e * r + center, point_g * r + center, point_h * r + center, color});
+    trigs.push_back({point_a * r + center, point_e * r + center, point_g * r + center, color});
+    trigs.push_back({point_a * r + center, point_c * r + center, point_g * r + center, color});
+    trigs.push_back({point_a * r + center, point_b * r + center, point_f * r + center, color});
+    trigs.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
+    trigs.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
+    trigs.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
     // std::cout << "Creating hexahedron done\n";
 }
 
-void icosahedron(vec3 center, double radius, vec3 color, std::vector<polygon> &polygons) {
+void icosahedron(vec3 center, double radius, vec3 color, std::vector <triangle> &trigs) {
     color = normalise_color(color);
 
     double atctan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
@@ -301,7 +302,7 @@ void icosahedron(vec3 center, double radius, vec3 color, std::vector<polygon> &p
     double segment_angle = M_PI * 72 / 180;
     double current_angle = 0.0;
 
-    std::vector<vec3> vertices(12);
+    std::vector <vec3> vertices(12);
     vertices[0] = {0, radius, 0};
     vertices[11] = {0, -radius, 0};
 
@@ -322,158 +323,165 @@ void icosahedron(vec3 center, double radius, vec3 color, std::vector<polygon> &p
     }
 
     for (auto &j: vertices) {
-        j.x = j.x + center.x;
-        j.y = j.y + center.y;
-        j.z = j.z + center.z;
+        j.x += center.x;
+        j.y += center.y;
+        j.z += center.z;
     }
 
-    polygons.push_back({vertices[0], vertices[1], vertices[2], color});
-    polygons.push_back({vertices[0], vertices[2], vertices[3], color});
-    polygons.push_back({vertices[0], vertices[3], vertices[4], color});
-    polygons.push_back({vertices[0], vertices[4], vertices[5], color});
-    polygons.push_back({vertices[0], vertices[5], vertices[1], color});
+    trigs.push_back({vertices[0], vertices[1], vertices[2], color});
+    trigs.push_back({vertices[0], vertices[2], vertices[3], color});
+    trigs.push_back({vertices[0], vertices[3], vertices[4], color});
+    trigs.push_back({vertices[0], vertices[4], vertices[5], color});
+    trigs.push_back({vertices[0], vertices[5], vertices[1], color});
 
-    polygons.push_back({vertices[1], vertices[5], vertices[10], color});
-    polygons.push_back({vertices[2], vertices[1], vertices[6], color});
-    polygons.push_back({vertices[3], vertices[2], vertices[7], color});
-    polygons.push_back({vertices[4], vertices[3], vertices[8], color});
-    polygons.push_back({vertices[5], vertices[4], vertices[9], color});
+    trigs.push_back({vertices[1], vertices[5], vertices[10], color});
+    trigs.push_back({vertices[2], vertices[1], vertices[6], color});
+    trigs.push_back({vertices[3], vertices[2], vertices[7], color});
+    trigs.push_back({vertices[4], vertices[3], vertices[8], color});
+    trigs.push_back({vertices[5], vertices[4], vertices[9], color});
 
-    polygons.push_back({vertices[6], vertices[7], vertices[2], color});
-    polygons.push_back({vertices[7], vertices[8], vertices[3], color});
-    polygons.push_back({vertices[8], vertices[9], vertices[4], color});
-    polygons.push_back({vertices[9], vertices[10], vertices[5], color});
-    polygons.push_back({vertices[10], vertices[6], vertices[1], color});
+    trigs.push_back({vertices[6], vertices[7], vertices[2], color});
+    trigs.push_back({vertices[7], vertices[8], vertices[3], color});
+    trigs.push_back({vertices[8], vertices[9], vertices[4], color});
+    trigs.push_back({vertices[9], vertices[10], vertices[5], color});
+    trigs.push_back({vertices[10], vertices[6], vertices[1], color});
 
-    polygons.push_back({vertices[11], vertices[7], vertices[6], color});
-    polygons.push_back({vertices[11], vertices[8], vertices[7], color});
-    polygons.push_back({vertices[11], vertices[9], vertices[8], color});
-    polygons.push_back({vertices[11], vertices[10], vertices[9], color});
-    polygons.push_back({vertices[11], vertices[6], vertices[10], color});
+    trigs.push_back({vertices[11], vertices[7], vertices[6], color});
+    trigs.push_back({vertices[11], vertices[8], vertices[7], color});
+    trigs.push_back({vertices[11], vertices[9], vertices[8], color});
+    trigs.push_back({vertices[11], vertices[10], vertices[9], color});
+    trigs.push_back({vertices[11], vertices[6], vertices[10], color});
 }
 
-void dodecahedron(vec3 center, double r, vec3 color, std::vector<polygon> &polygons) { // +++++++
-    // std::cout << "Creating dodecahedron\n";
+void dodecahedron(vec3 center, double r, vec3 color, std::vector<triangle>& trigs) { // +++++++
 
     color = normalise_color(color);
-    double a = (1 + sqrt(5)) / 2;
-    double b = 2 / (1 + sqrt(5));
-    // 20 vertices and 12 * 3 polygons (because pentagon == 3 triangles)
-    std::vector<vec3> vertices {{-b, 0, a} ,
-                                   { b, 0, a} ,
-                                   {-1, 1, 1} ,
-                                   { 1, 1, 1} ,
-                                   { 1, -1, 1} ,
-                                   {-1, -1, 1} ,
-                                   { 0, -a, b} ,
-                                   { 0, a, b} ,
-                                   {-a, -b, 0} ,
-                                   {-a, b, 0} ,
-                                   { a, b, 0} ,
-                                   { a, -b, 0} ,
-                                   { 0, -a, -b} ,
-                                   { 0, a, -b} ,
-                                   { 1, 1, -1} ,
-                                   { 1, -1, -1} ,
-                                   {-1, -1, -1} ,
-                                   {-1, 1, -1} ,
-                                   { b, 0, -a} ,
-                                   {-b, 0, -a}
-    };
 
-    for (auto &j: vertices) {
-        j.x /= sqrt(3);
-        j.y /= sqrt(3);
-        j.z /= sqrt(3);
+    std::vector <vec3> vertices {{-2 / (1 + sqrt(5)) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
+                                {2 / (1 + sqrt(5)) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
+                                {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                                {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                                {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                                {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                                {0, (-(1 + sqrt(5)) / 2) / sqrt(3), 2 / (1 + sqrt(5)) / sqrt(3)},
+                                {0, ((1 + sqrt(5)) / 2) / sqrt(3),  2 / (1 + sqrt(5)) / sqrt(3)},
+                                {(-(1 + sqrt(5)) / 2) / sqrt(3), -2 / (1 + sqrt(5)) / sqrt(3), 0},
+                                {(-(1 + sqrt(5)) / 2) / sqrt(3), 2 / (1 + sqrt(5)) / sqrt(3), 0},
+                                {((1 + sqrt(5)) / 2) / sqrt(3),  2 / (1 + sqrt(5)) / sqrt(3), 0},
+                                {((1 + sqrt(5)) / 2) / sqrt(3),  -2 / (1 + sqrt(5)) / sqrt(3), 0},
+                                {0, (-(1 + sqrt(5)) / 2) / sqrt(3), -2 / (1 + sqrt(5)) / sqrt(3)},
+                                {0, ((1 + sqrt(5)) / 2) / sqrt(3),  -2 / (1 + sqrt(5)) / sqrt(3)},
+                                {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                                {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                                {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                                {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                                {2 / (1 + sqrt(5)) / sqrt(3),  0, (-(1 + sqrt(5)) / 2) / sqrt(3)},
+                                {-2 / (1 + sqrt(5)) / sqrt(3), 0, (-(1 + sqrt(5)) / 2) / sqrt(3)}};
+
+
+//    // Shifting
+//    for (auto &j: vertices) {
+//        j.x = j.x * r + center.x;
+//        j.y = j.y * r + center.y;
+//        j.z = j.z * r + center.z;
+//    }
+
+    for (int i = 0; i < vertices.size(); i++) {
+        vertices[i].x *= r + center.x;
+        vertices[i].y *= r + center.y;
+        vertices[i].z *= r + center.z;
     }
 
-    // Shifting
-    for (auto &j: vertices) {
-        j.x = j.x * r + center.x;
-        j.y = j.y * r + center.y;
-        j.z = j.z * r + center.z;
-    }
+    trigs.push_back({vertices[4], vertices[0], vertices[6], color});
+    trigs.push_back({vertices[0], vertices[5], vertices[6], color});
+    trigs.push_back({vertices[0], vertices[4], vertices[1], color});
 
-    // Applying 36 polygons
-    polygons.push_back({vertices[4], vertices[0], vertices[6], color});
-    polygons.push_back({vertices[0], vertices[5], vertices[6], color});
-    polygons.push_back({vertices[0], vertices[4], vertices[1], color});
-    polygons.push_back({vertices[0], vertices[3], vertices[7], color});
-    polygons.push_back({vertices[2], vertices[0], vertices[7], color});
-    polygons.push_back({vertices[0], vertices[1], vertices[3], color});
-    polygons.push_back({vertices[10], vertices[1], vertices[11], color});
-    polygons.push_back({vertices[3], vertices[1], vertices[10], color});
-    polygons.push_back({vertices[1], vertices[4], vertices[11], color});
-    polygons.push_back({vertices[5], vertices[0], vertices[8], color});
-    polygons.push_back({vertices[0], vertices[2], vertices[9], color});
-    polygons.push_back({vertices[8], vertices[0], vertices[9], color});
-    polygons.push_back({vertices[5], vertices[8], vertices[16], color});
-    polygons.push_back({vertices[6], vertices[5], vertices[12], color});
-    polygons.push_back({vertices[12], vertices[5], vertices[16], color});
-    polygons.push_back({vertices[4], vertices[12], vertices[15], color});
-    polygons.push_back({vertices[4], vertices[6], vertices[12], color});
-    polygons.push_back({vertices[11], vertices[4], vertices[15], color});
-    polygons.push_back({vertices[2], vertices[13], vertices[17], color});
-    polygons.push_back({vertices[2], vertices[7], vertices[13], color});
-    polygons.push_back({vertices[9], vertices[2], vertices[17], color});
-    polygons.push_back({vertices[13], vertices[3], vertices[14], color});
-    polygons.push_back({vertices[7], vertices[3], vertices[13], color});
-    polygons.push_back({vertices[3], vertices[10], vertices[14], color});
-    polygons.push_back({vertices[8], vertices[17], vertices[19], color});
-    polygons.push_back({vertices[16], vertices[8], vertices[19], color});
-    polygons.push_back({vertices[8], vertices[9], vertices[17], color});
-    polygons.push_back({vertices[14], vertices[11], vertices[18], color});
-    polygons.push_back({vertices[11], vertices[15], vertices[18], color});
-    polygons.push_back({vertices[10], vertices[11], vertices[14], color});
-    polygons.push_back({vertices[12], vertices[19], vertices[18], color});
-    polygons.push_back({vertices[15], vertices[12], vertices[18], color});
-    polygons.push_back({vertices[12], vertices[16], vertices[19], color});
-    polygons.push_back({vertices[19], vertices[13], vertices[18], color});
-    polygons.push_back({vertices[17], vertices[13], vertices[19], color});
-    polygons.push_back({vertices[13], vertices[14], vertices[18], color});
+    trigs.push_back({vertices[0], vertices[3], vertices[7], color});
+    trigs.push_back({vertices[2], vertices[0], vertices[7], color});
+    trigs.push_back({vertices[0], vertices[1], vertices[3], color});
+
+    trigs.push_back({vertices[10], vertices[1], vertices[11], color});
+    trigs.push_back({vertices[3], vertices[1], vertices[10], color});
+    trigs.push_back({vertices[1], vertices[4], vertices[11], color});
+
+    trigs.push_back({vertices[5], vertices[0], vertices[8], color});
+    trigs.push_back({vertices[0], vertices[2], vertices[9], color});
+    trigs.push_back({vertices[8], vertices[0], vertices[9], color});
+
+    trigs.push_back({vertices[5], vertices[8], vertices[16], color});
+    trigs.push_back({vertices[6], vertices[5], vertices[12], color});
+    trigs.push_back({vertices[12], vertices[5], vertices[16], color});
+
+    trigs.push_back({vertices[4], vertices[12], vertices[15], color});
+    trigs.push_back({vertices[4], vertices[6], vertices[12], color});
+    trigs.push_back({vertices[11], vertices[4], vertices[15], color});
+
+    trigs.push_back({vertices[2], vertices[13], vertices[17], color});
+    trigs.push_back({vertices[2], vertices[7], vertices[13], color});
+    trigs.push_back({vertices[9], vertices[2], vertices[17], color});
+
+    trigs.push_back({vertices[13], vertices[3], vertices[14], color});
+    trigs.push_back({vertices[7], vertices[3], vertices[13], color});
+    trigs.push_back({vertices[3], vertices[10], vertices[14], color});
+
+    trigs.push_back({vertices[8], vertices[17], vertices[19], color});
+    trigs.push_back({vertices[16], vertices[8], vertices[19], color});
+    trigs.push_back({vertices[8], vertices[9], vertices[17], color});
+
+    trigs.push_back({vertices[14], vertices[11], vertices[18], color});
+    trigs.push_back({vertices[11], vertices[15], vertices[18], color});
+    trigs.push_back({vertices[10], vertices[11], vertices[14], color});
+
+    trigs.push_back({vertices[12], vertices[19], vertices[18], color});
+    trigs.push_back({vertices[15], vertices[12], vertices[18], color});
+    trigs.push_back({vertices[12], vertices[16], vertices[19], color});
+
+    trigs.push_back({vertices[19], vertices[13], vertices[18], color});
+    trigs.push_back({vertices[17], vertices[13], vertices[19], color});
+    trigs.push_back({vertices[13], vertices[14], vertices[18], color});
 
     // std::cout << "Creating dodecahedron done\n";
 }
 
 void scene(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color,
-           std::vector<polygon> &polygons) {
+           std::vector <triangle> &trigs) {
     // std::cout << "Creating scene\n";
     color = normalise_color(color);
-    polygons.push_back(polygon{a, b, c, color});
-    polygons.push_back(polygon{c, d, a, color});
+    trigs.push_back(triangle{a, b, c, color});
+    trigs.push_back(triangle{c, d, a, color});
 }
 
-int cpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4* pixels,
-             uchar4* pixels_ssaa, vec3 light_pos, vec3 light_col, polygon* polygons, int n, int ssaa_multiplier) {
-    render_cpu(p_c, p_v, ssaa_w, ssaa_h, fov, pixels_ssaa, light_pos, light_col, polygons, n);
+int cpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4 *pixels,
+             uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int n, int ssaa_multiplier) {
+    render_cpu(p_c, p_v, ssaa_w, ssaa_h, fov, pixels_ssaa, light_pos, light_col, trigs, n);
     ssaa_cpu(pixels, w, h, ssaa_multiplier, pixels_ssaa);
 
     return 0;
 }
 
-int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4* pixels,
-             uchar4* pixels_ssaa, vec3 light_pos, vec3 light_col, polygon* polygons, int n, int ssaa_multiplier) {
+int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4 *pixels,
+             uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int n, int ssaa_multiplier) {
 //    cerr << "Allocate pixels\n";
     // Allocating on gpu
-    uchar4* gpu_pixels;
-    CSC(cudaMalloc((uchar4**)(&gpu_pixels), w * h * sizeof(uchar4)));
+    uchar4 *gpu_pixels;
+    CSC(cudaMalloc((uchar4 * *)(&gpu_pixels), w * h * sizeof(uchar4)));
     CSC(cudaMemcpy(gpu_pixels, pixels, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
 //    cerr << "Allocate ssaa pixels\n";
-    uchar4* gpu_pixels_ssaa;
-    CSC(cudaMalloc((uchar4**)(&gpu_pixels_ssaa), ssaa_w * ssaa_h * sizeof(uchar4)));
+    uchar4 *gpu_pixels_ssaa;
+    CSC(cudaMalloc((uchar4 * *)(&gpu_pixels_ssaa), ssaa_w * ssaa_h * sizeof(uchar4)));
     CSC(cudaMemcpy(gpu_pixels_ssaa, pixels_ssaa, ssaa_w * ssaa_h * sizeof(uchar4), cudaMemcpyHostToDevice));
-//    cerr << "Allocate polygons\n";
-    polygon* gpu_polygons;
-    CSC(cudaMalloc((polygon**)(&gpu_polygons), n * sizeof(polygon)));
-    CSC(cudaMemcpy(gpu_polygons, polygons, n * sizeof(polygon), cudaMemcpyHostToDevice));
+//    cerr << "Allocate trigs\n";
+    triangle *gpu_trigs;
+    CSC(cudaMalloc((triangle **) (&gpu_trigs), n * sizeof(triangle)));
+    CSC(cudaMemcpy(gpu_trigs, trigs, n * sizeof(triangle), cudaMemcpyHostToDevice));
 //    cerr << "Start render\n";
     // Rendering
-    render_gpu <<< 128, 128 >>> (p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_polygons, n);
+    render_gpu <<< 128, 128 >>>(p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_trigs, n);
     cudaThreadSynchronize();
     CSC(cudaGetLastError());
 //    cerr << "Start ssaa\n";
     // Ssaa smoothing algo
-    ssaa_gpu <<< 128, 128 >>> (gpu_pixels, w, h, ssaa_multiplier, gpu_pixels_ssaa);
+    ssaa_gpu <<< 128, 128 >>>(gpu_pixels, w, h, ssaa_multiplier, gpu_pixels_ssaa);
     cudaThreadSynchronize();
     CSC(cudaGetLastError());
     CSC(cudaMemcpy(pixels, gpu_pixels, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
@@ -481,18 +489,18 @@ int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
     // Free memory
     CSC(cudaFree(gpu_pixels));
     CSC(cudaFree(gpu_pixels_ssaa));
-    CSC(cudaFree(gpu_polygons));
+    CSC(cudaFree(gpu_trigs));
 
     return 0;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     std::string arg;
     if (argv[1]) arg = argv[1];
 
     if (arg == "--default") {
         std::cout << "100" << "\n";
-        std::cout <<"./out" << "\n";
+        std::cout << "./out" << "\n";
         std::cout << "640 480 120" << "\n";
         std::cout << "7.0 3.0 0.0 2.0 1.0 2.0 6.0 1.0 0.0 0.0" << "\n";
         std::cout << "2.0 0.0 0.0 0.5 0.1 1.0 4.0 1.0 0.0 0.0" << "\n";
@@ -556,13 +564,16 @@ int main(int argc, char* argv[]) {
     vec3 c_verticles;
     vec3 col_values;
     double radius;
-    std::vector<polygon> polygons;
-    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z >> radius >> temp >> temp >> temp;
-    hexahedron(c_verticles, radius, col_values, polygons);
-    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z >> radius >> temp >> temp >> temp;
-    icosahedron(c_verticles, radius, col_values, polygons);
-    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z >> radius >> temp >> temp >> temp;
-    dodecahedron(c_verticles, radius, col_values, polygons);
+    std::vector <triangle> trigs;
+    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
+             >> radius >> temp >> temp >> temp;
+    hexahedron(c_verticles, radius, col_values, trigs);
+    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
+             >> radius >> temp >> temp >> temp;
+    icosahedron(c_verticles, radius, col_values, trigs);
+    std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
+             >> radius >> temp >> temp >> temp;
+    dodecahedron(c_verticles, radius, col_values, trigs);
 
     // Scene
     vec3 floor_first_point;
@@ -574,7 +585,7 @@ int main(int argc, char* argv[]) {
     std::cin >> floor_third_point.x >> floor_third_point.y >> floor_third_point.z;
     std::cin >> floor_fourth_point.x >> floor_fourth_point.y >> floor_fourth_point.z;
     std::cin >> temp >> col_values.x >> col_values.y >> col_values.z >> temp;
-    scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, polygons);
+    scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, trigs);
 
     // Lights
     int n_lights;
@@ -589,20 +600,20 @@ int main(int argc, char* argv[]) {
 
     int sum_of_rays;
 
-    double total_duration_time = 0;
+    triangle *trigs_as_array;
+    trigs_as_array = trigs.data();
+    uchar4 *pixels = new uchar4[w * h * rays_sqrt * rays_sqrt];
+    uchar4 *pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
 
-    polygon* polygons_as_array;
-    polygons_as_array = polygons.data();
-    uchar4* pixels = new uchar4[w * h * rays_sqrt * rays_sqrt];
-    uchar4* pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
-
-    std::cout << "Polygons count: " << polygons.size() << "\n";
+    std::cout << "Polygons count: " << trigs.size() << "\n";
     std::cout << "Image size: " << w << " " << h << "\n";
     std::cout << "Frames summ: " << frames_count << "\n";
 
+    double total_duration_time = 0;
+
     for (int i = 0; i < frames_count; i++) {
         auto time_start = std::chrono::steady_clock::now();
-        double t = 2.0 * i * M_PI / frames_count;
+        double t = i * 2.0 * M_PI / frames_count;
 
         // Movement
         double r_c = r0c + Arc * sin(omegaRc * t + pRc);
@@ -613,39 +624,36 @@ int main(int argc, char* argv[]) {
         double z_v = z0v + Azv * sin(omegaZv * t + pZv);
         double phi_v = phi0v + omegaPhiV * t;
 
-        vec3 p_c = { r_c * cos(phi_c),
+        vec3 p_c = {r_c * cos(phi_c),
                     r_c * sin(phi_c),
-                    z_c };
-        vec3 p_v = { r_v * cos(phi_v),
+                    z_c};
+        vec3 p_v = {r_v * cos(phi_v),
                     r_v * sin(phi_v),
-                    z_v };
+                    z_v};
 
         // Total sum of rays (will be the same coz of recursion)
         sum_of_rays = w * h * rays_sqrt * rays_sqrt;
-        int p_size = polygons.size();
+        int p_size = trigs.size();
         int ssaa_h = h * rays_sqrt;
 
         int res;
         if (is_gpu)
-            res = gpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double)view_angle, pixels, pixels_ssaa,
-                           light_pos, light_col, polygons_as_array, p_size, rays_sqrt);
+            res = gpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
+                           light_pos, light_col, trigs_as_array, p_size, rays_sqrt);
         else
-            res = cpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double)view_angle, pixels, pixels_ssaa,
-                           light_pos, light_col, polygons_as_array, p_size, rays_sqrt);
-        if (res)
-            std::cout << "An error occurred. Check output\n";
+            res = cpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
+                           light_pos, light_col, trigs_as_array, p_size, rays_sqrt);
 
         auto end = std::chrono::steady_clock::now();
-        std::cout << "|\tIteration " << i + 1 << " of " << frames_count << "\t|\t";
-        double iteration_time = ((double)std::chrono::duration_cast<std::chrono::microseconds>(end - time_start).count()) / 1000.0;
-        total_duration_time += iteration_time;
-        std::cout << iteration_time << "ms\t|\t";
-        std::cout << sum_of_rays << "\t\t|\n";
+
+        double summ_time = std::chrono::duration_cast<std::chrono::microseconds>(end - time_start).count() / 1000;
+        total_duration_time += summ_time;
+        std::cout << i + 1 << "/" << frames_count << "\t" << summ_time << "\t" << sum_of_rays << "\n";
 
         std::string iter = std::to_string(i);
         std::string filename = path_to_frames;
         replace(filename, "%d", iter);
-        FILE* fp = fopen(filename.c_str(), "wb");
+        FILE *fp = fopen(filename.c_str(), "wb");
         fwrite(&w, sizeof(int), 1, fp); // тут падает
         fwrite(&h, sizeof(int), 1, fp);
         fwrite(pixels, sizeof(uchar4), w * h, fp);
@@ -655,6 +663,6 @@ int main(int argc, char* argv[]) {
     delete[] pixels;
     delete[] pixels_ssaa;
 
-    std::cout << "Done with total duration: " << total_duration_time << "ms\n";
+    std::cout << "All time: " << total_duration_time << "\n";
     return 0;
 }
