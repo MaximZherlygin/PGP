@@ -451,8 +451,8 @@ int cpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
     return 0;
 }
 
-int gpu_mode(vector_cords p_c, vector_cords p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4* pixels,
-             uchar4* pixels_ssaa, vector_cords light_pos, vector_cords light_col, polygon* polygons, int n, int ssaa_multiplier) {
+int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4* pixels,
+             uchar4* pixels_ssaa, vec3 light_pos, vec3 light_col, polygon* polygons, int n, int ssaa_multiplier) {
 //    cerr << "Allocate pixels\n";
     // Allocating on gpu
     uchar4* gpu_pixels;
