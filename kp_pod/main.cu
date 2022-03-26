@@ -278,8 +278,8 @@ void hexahedron(const vec3 c_coords, const double radius, const vec3 colors, std
         points[i].y *= radius;
         points[i].y += c_coords.y;
 
-        points[i].y *= radius;
-        points[i].y += c_coords.y;
+        points[i].z *= radius;
+        points[i].z += c_coords.z;
     }
 
     trigs.push_back({points[0], points[1], points[3], colors});
@@ -325,8 +325,8 @@ void icosahedron(vec3 c_coords, double radius, const vec3 colors, std::vector<tr
         points[i].y *= radius;
         points[i].y += c_coords.y;
 
-        points[i].y *= radius;
-        points[i].y += c_coords.y;
+        points[i].z *= radius;
+        points[i].z += c_coords.z;
     }
 
     trigs.push_back({points[0], points[1], points[2], colors});
