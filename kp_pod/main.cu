@@ -93,7 +93,7 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
         vec3 e1 = polygons[i].p2 - polygons[i].p1;
         vec3 e2 = polygons[i].p3 - polygons[i].p1;
         vec3 p = crossing(dir, e2);
-        double dwiv = scal_mul(p, e1);
+        double div = scal_mul(p, e1);
 
         if (fabs(div) < 1e-10)
             continue;
