@@ -225,7 +225,7 @@ void ssaa_cpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
             pixels[y * w + x].x = (uchar)(int)(mid_pixel.x / (coeff * coeff));
             pixels[y * w + x].y = (uchar)(int)(mid_pixel.y / (coeff * coeff));
             pixels[y * w + x].z = (uchar)(int)(mid_pixel.z / (coeff * coeff));
-            pixels[y * w + x].w = mid_pixel.w;
+            pixels[y * w + x].w = 0;
         }
     }
 }
@@ -251,7 +251,7 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
             pixels[y * w + x].x = (uchar)(mid.x / (coeff * coeff));
             pixels[y * w + x].y = (uchar)(mid.y / (coeff * coeff));
             pixels[y * w + x].z = (uchar)(mid.z / (coeff * coeff));
-            pixels[y * w + x].w = mid.w;
+            pixels[y * w + x].w = 0;
         }
     }
 }
