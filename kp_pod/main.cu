@@ -307,25 +307,20 @@ void icosahedron(vec3 c_coords, double radius, const vec3 colors, std::vector<tr
     points[11] = {0, -radius, 0};
 
     for (int i = 1; i < 6; i++) {
-        points[i] = {sin(current_angle) * cos(angle), sin(angle), cos(current_angle) * cos(angle)};
+        points[i] = {radius * sin(current_angle) * cos(angle), radius * sin(angle), radius * cos(current_angle) * cos(angle)};
         current_angle += segment_angle;
     }
 
     current_angle = M_PI * 36 / 180;
 
     for (int i = 6; i < 11; i++) {
-        points[i] = {sin(current_angle) * cos(-angle), sin(-angle), cos(current_angle) * cos(-angle)};
+        points[i] = {radius * sin(current_angle) * cos(-angle), radius * sin(-angle), radius * cos(current_angle) * cos(-angle)};
         current_angle += segment_angle;
     }
 
     for (int i = 0; i < points.size(); i++) {
-        points[i].x *= radius;
         points[i].x += c_coords.x;
-
-        points[i].y *= radius;
         points[i].y += c_coords.y;
-
-        points[i].z *= radius;
         points[i].z += c_coords.z;
     }
 
