@@ -260,105 +260,101 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
     }
 }
 
-void hexahedron(vec3 center, double r, vec3 color, std::vector <triangle> &trigs) { // ++++++
-    // std::cout << "Creating hexahedron\n";
+void hexahedron(const vec3 c_coords, const double radius, const vec3 colors, std::vector<triangle>& trigs) { // ++++++
 
-    color = normalise_color(color);
+    std::vector <vec3> points {{-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                               {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                               {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                               {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                               {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                               {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                               {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                               {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)}};
 
-    // Create all vertices
-    std::vector <vec3> vertices(8);
+    for (int i = 0; i < points.size(); i++) {
+        points[i].x *= radius;
+        points[i].x += c_coords.x;
 
-    vec3 point_a{-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_b{-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
-    vec3 point_c{-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_d{-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)};
-    vec3 point_e{1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_f{1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)};
-    vec3 point_g{1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)};
-    vec3 point_h{1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)};
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
 
-    // 6 sides means 12 trigs of triangles
-    // Create with shifting
-    trigs.push_back({point_a * r + center, point_b * r + center, point_d * r + center, color});
-    trigs.push_back({point_a * r + center, point_c * r + center, point_d * r + center, color});
-    trigs.push_back({point_b * r + center, point_f * r + center, point_h * r + center, color});
-    trigs.push_back({point_b * r + center, point_d * r + center, point_h * r + center, color});
-    trigs.push_back({point_e * r + center, point_f * r + center, point_h * r + center, color});
-    trigs.push_back({point_e * r + center, point_g * r + center, point_h * r + center, color});
-    trigs.push_back({point_a * r + center, point_e * r + center, point_g * r + center, color});
-    trigs.push_back({point_a * r + center, point_c * r + center, point_g * r + center, color});
-    trigs.push_back({point_a * r + center, point_b * r + center, point_f * r + center, color});
-    trigs.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
-    trigs.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
-    trigs.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
-    // std::cout << "Creating hexahedron done\n";
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
+    }
+
+    trigs.push_back({points[0], points[1], points[3], colors});
+    trigs.push_back({points[0], points[2], points[3], colors});
+    trigs.push_back({points[1], points[5], points[7], colors});
+    trigs.push_back({points[1], points[3], points[7], colors});
+    trigs.push_back({points[4], points[5], points[7], colors});
+    trigs.push_back({points[4], points[6], points[7], colors});
+    trigs.push_back({points[0], points[4], points[6], colors});
+    trigs.push_back({points[0], points[2], points[6], colors});
+    trigs.push_back({points[0], points[1], points[5], colors});
+    trigs.push_back({points[0], points[4], points[5], colors});
+    trigs.push_back({points[2], points[3], points[7], colors});
+    trigs.push_back({points[2], points[6], points[7], colors});
 }
 
-void icosahedron(vec3 center, double radius, vec3 color, std::vector <triangle> &trigs) {
-    color = normalise_color(color);
-
-    double atctan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
-    double angle = M_PI * atctan_1_2 / 180;
+void icosahedron(vec3 c_coords, double radius, const vec3 colors, std::vector<triangle> &trigs) {
+    double atrtan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
+    double angle = M_PI * atrtan_1_2 / 180;
     double segment_angle = M_PI * 72 / 180;
     double current_angle = 0.0;
 
-    std::vector <vec3> vertices(12);
-    vertices[0] = {0, radius, 0};
-    vertices[11] = {0, -radius, 0};
+    std::vector <vec3> points(12);
+    points[0] = {0, radius, 0};
+    points[11] = {0, -radius, 0};
 
     for (int i = 1; i < 6; i++) {
-        vertices[i] = {radius * sin(current_angle) * cos(angle),
-                       radius * sin(angle),
-                       radius * cos(current_angle) * cos(angle)};
+        points[i] = {sin(current_angle) * cos(angle), sin(angle), cos(current_angle) * cos(angle)};
         current_angle += segment_angle;
     }
 
     current_angle = M_PI * 36 / 180;
 
     for (int i = 6; i < 11; i++) {
-        vertices[i] = {radius * sin(current_angle) * cos(-angle),
-                       radius * sin(-angle),
-                       radius * cos(current_angle) * cos(-angle)};
+        points[i] = {sin(current_angle) * cos(-angle), sin(-angle), cos(current_angle) * cos(-angle)};
         current_angle += segment_angle;
     }
 
-    for (auto &j: vertices) {
-        j.x += center.x;
-        j.y += center.y;
-        j.z += center.z;
+    for (int i = 0; i < points.size(); i++) {
+        points[i].x *= radius;
+        points[i].x += c_coords.x;
+
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
+
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
     }
 
-    trigs.push_back({vertices[0], vertices[1], vertices[2], color});
-    trigs.push_back({vertices[0], vertices[2], vertices[3], color});
-    trigs.push_back({vertices[0], vertices[3], vertices[4], color});
-    trigs.push_back({vertices[0], vertices[4], vertices[5], color});
-    trigs.push_back({vertices[0], vertices[5], vertices[1], color});
+    trigs.push_back({points[0], points[1], points[2], colors});
+    trigs.push_back({points[0], points[2], points[3], colors});
+    trigs.push_back({points[0], points[3], points[4], colors});
+    trigs.push_back({points[0], points[4], points[5], colors});
+    trigs.push_back({points[0], points[5], points[1], colors});
 
-    trigs.push_back({vertices[1], vertices[5], vertices[10], color});
-    trigs.push_back({vertices[2], vertices[1], vertices[6], color});
-    trigs.push_back({vertices[3], vertices[2], vertices[7], color});
-    trigs.push_back({vertices[4], vertices[3], vertices[8], color});
-    trigs.push_back({vertices[5], vertices[4], vertices[9], color});
+    trigs.push_back({points[1], points[5], points[10], colors});
+    trigs.push_back({points[2], points[1], points[6], colors});
+    trigs.push_back({points[3], points[2], points[7], colors});
+    trigs.push_back({points[4], points[3], points[8], colors});
+    trigs.push_back({points[5], points[4], points[9], colors});
 
-    trigs.push_back({vertices[6], vertices[7], vertices[2], color});
-    trigs.push_back({vertices[7], vertices[8], vertices[3], color});
-    trigs.push_back({vertices[8], vertices[9], vertices[4], color});
-    trigs.push_back({vertices[9], vertices[10], vertices[5], color});
-    trigs.push_back({vertices[10], vertices[6], vertices[1], color});
+    trigs.push_back({points[6], points[7], points[2], colors});
+    trigs.push_back({points[7], points[8], points[3], colors});
+    trigs.push_back({points[8], points[9], points[4], colors});
+    trigs.push_back({points[9], points[10], points[5], colors});
+    trigs.push_back({points[10], points[6], points[1], colors});
 
-    trigs.push_back({vertices[11], vertices[7], vertices[6], color});
-    trigs.push_back({vertices[11], vertices[8], vertices[7], color});
-    trigs.push_back({vertices[11], vertices[9], vertices[8], color});
-    trigs.push_back({vertices[11], vertices[10], vertices[9], color});
-    trigs.push_back({vertices[11], vertices[6], vertices[10], color});
+    trigs.push_back({points[11], points[7], points[6], colors});
+    trigs.push_back({points[11], points[8], points[7], colors});
+    trigs.push_back({points[11], points[9], points[8], colors});
+    trigs.push_back({points[11], points[10], points[9], colors});
+    trigs.push_back({points[11], points[6], points[10], colors});
 }
 
-void dodecahedron(const vec3 center, const double r, vec3 color, std::vector<triangle>& trigs) { // +++++++
-
-    color.x *= 255.0;
-    color.y *= 255.0;
-    color.z *= 255.0;
-
+void dodecahedron(const vec3 c_coords, const double radius, const vec3 colors, std::vector<triangle>& trigs) { // +++++++
     std::vector<vec3> points {{-(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
                               {(2 / (1 + sqrt(5))) / sqrt(3),  0, ((1 + sqrt(5)) / 2) / sqrt(3)},
                               {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
@@ -381,63 +377,63 @@ void dodecahedron(const vec3 center, const double r, vec3 color, std::vector<tri
                               {-(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)}};
 
     for (int i = 0; i < points.size(); i++) {
-        points[i].x *= r;
-        points[i].x += center.x;
+        points[i].x *= radius;
+        points[i].x += c_coords.x;
 
-        points[i].y *= r;
-        points[i].y += center.y;
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
 
-        points[i].y *= r;
-        points[i].y += center.y;
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
     }
 
-    trigs.push_back({points[4], points[0], points[6], color});
-    trigs.push_back({points[4], points[1], points[0], color});
-    trigs.push_back({points[0], points[5], points[6], color});
+    trigs.push_back({points[4], points[0], points[6], colors});
+    trigs.push_back({points[4], points[1], points[0], colors});
+    trigs.push_back({points[0], points[5], points[6], colors});
 
-    trigs.push_back({points[7], points[0], points[3], color});
-    trigs.push_back({points[7], points[2], points[0], color});
-    trigs.push_back({points[0], points[1], points[3], color});
+    trigs.push_back({points[7], points[0], points[3], colors});
+    trigs.push_back({points[7], points[2], points[0], colors});
+    trigs.push_back({points[0], points[1], points[3], colors});
 
-    trigs.push_back({points[10], points[1], points[11], color});
-    trigs.push_back({points[10], points[3], points[1], color});
-    trigs.push_back({points[1], points[4], points[11], color});
+    trigs.push_back({points[10], points[1], points[11], colors});
+    trigs.push_back({points[10], points[3], points[1], colors});
+    trigs.push_back({points[1], points[4], points[11], colors});
 
-    trigs.push_back({points[8], points[0], points[9], color});
-    trigs.push_back({points[8], points[5], points[0], color});
-    trigs.push_back({points[0], points[2], points[9], color});
+    trigs.push_back({points[8], points[0], points[9], colors});
+    trigs.push_back({points[8], points[5], points[0], colors});
+    trigs.push_back({points[0], points[2], points[9], colors});
 
-    trigs.push_back({points[12], points[5], points[16], color});
-    trigs.push_back({points[12], points[6], points[5], color});
-    trigs.push_back({points[5], points[8], points[16], color});
+    trigs.push_back({points[12], points[5], points[16], colors});
+    trigs.push_back({points[12], points[6], points[5], colors});
+    trigs.push_back({points[5], points[8], points[16], colors});
 
-    trigs.push_back({points[4], points[6], points[12], color});
-    trigs.push_back({points[15], points[4], points[12], color});
-    trigs.push_back({points[15], points[11], points[4], color});
+    trigs.push_back({points[4], points[6], points[12], colors});
+    trigs.push_back({points[15], points[4], points[12], colors});
+    trigs.push_back({points[15], points[11], points[4], colors});
 
-    trigs.push_back({points[2], points[7], points[13], color});
-    trigs.push_back({points[17], points[2], points[13], color});
-    trigs.push_back({points[17], points[9], points[2], color});
+    trigs.push_back({points[2], points[7], points[13], colors});
+    trigs.push_back({points[17], points[2], points[13], colors});
+    trigs.push_back({points[17], points[9], points[2], colors});
 
-    trigs.push_back({points[3], points[10], points[14], color});
-    trigs.push_back({points[13], points[3], points[14], color});
-    trigs.push_back({points[13], points[7], points[3], color});
+    trigs.push_back({points[3], points[10], points[14], colors});
+    trigs.push_back({points[13], points[3], points[14], colors});
+    trigs.push_back({points[13], points[7], points[3], colors});
 
-    trigs.push_back({points[8], points[9], points[17], color});
-    trigs.push_back({points[19], points[8], points[17], color});
-    trigs.push_back({points[19], points[16], points[8], color});
+    trigs.push_back({points[8], points[9], points[17], colors});
+    trigs.push_back({points[19], points[8], points[17], colors});
+    trigs.push_back({points[19], points[16], points[8], colors});
 
-    trigs.push_back({points[11], points[15], points[18], color});
-    trigs.push_back({points[14], points[11], points[18], color});
-    trigs.push_back({points[14], points[10], points[11], color});
+    trigs.push_back({points[11], points[15], points[18], colors});
+    trigs.push_back({points[14], points[11], points[18], colors});
+    trigs.push_back({points[14], points[10], points[11], colors});
 
-    trigs.push_back({points[12], points[16], points[19], color});
-    trigs.push_back({points[18], points[12], points[19], color});
-    trigs.push_back({points[18], points[15], points[12], color});
+    trigs.push_back({points[12], points[16], points[19], colors});
+    trigs.push_back({points[18], points[12], points[19], colors});
+    trigs.push_back({points[18], points[15], points[12], colors});
 
-    trigs.push_back({points[13], points[14], points[18], color});
-    trigs.push_back({points[19], points[13], points[18], color});
-    trigs.push_back({points[19], points[17], points[13], color});
+    trigs.push_back({points[13], points[14], points[18], colors});
+    trigs.push_back({points[19], points[13], points[18], colors});
+    trigs.push_back({points[19], points[17], points[13], colors});
 
     // std::cout << "Creating dodecahedron done\n";
 }
@@ -566,12 +562,21 @@ int main(int argc, char *argv[]) {
     std::vector <triangle> trigs;
     std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
              >> radius >> temp >> temp >> temp;
+    col_values.x *= 255.0;
+    col_values.y *= 255.0;
+    col_values.z *= 255.0;
     hexahedron(c_verticles, radius, col_values, trigs);
     std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
              >> radius >> temp >> temp >> temp;
+    col_values.x *= 255.0;
+    col_values.y *= 255.0;
+    col_values.z *= 255.0;
     icosahedron(c_verticles, radius, col_values, trigs);
     std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
              >> radius >> temp >> temp >> temp;
+    col_values.x *= 255.0;
+    col_values.y *= 255.0;
+    col_values.z *= 255.0;
     dodecahedron(c_verticles, radius, col_values, trigs);
 
     // Scene
