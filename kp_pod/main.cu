@@ -3,10 +3,12 @@
 #include <float.h>
 #include <vector>
 #include <string>
-#include <cmath>
 #include <chrono>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+
+#define _USE_MATH_DEFINES // for C++
+#include <cmath>
 
 using namespace std;
 
@@ -254,8 +256,8 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
     }
 }
 
-void cube(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
-    // cout << "Creating cube\n";
+void hexahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) { // ++++++
+    // cout << "Creating hexahedron\n";
 
     color = normalise_color(color);
 
@@ -285,42 +287,67 @@ void cube(vector_cords center, double r, vector_cords color, vector<polygon> &po
     polygons.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
     polygons.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
     polygons.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
-    // cout << "Creating cube done\n";
+    // cout << "Creating hexahedron done\n";
 }
 
-void octahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
-    // cout << "Creating octahedron\n";
+void icosahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
+    double atctan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
+    double magic_angle = M_PI * atctan_1_2 / 180;
+    double segment_angle = M_PI * 72 / 180;
+    double current_angle = 0.0;
 
-    color = normalise_color(color);
-    // Start from fixed points and shift after
-    vector<vector_cords> vertices {{1,  0,  0,},
-                                   {-1,  0,  0},
-                                   {0,  1,  0,},
-                                   {0, -1,  0,},
-                                   {0,  0,  1,},
-                                   {0,  0, -1 }
-    };
-    // 8 sides
-    vector<vector<int>> order{{5, 2, 0,},
-                              {5, 0, 3,},
-                              {5, 3, 1,},
-                              {5, 1, 2,},
-                              {4, 3, 0,},
-                              {4, 1, 3,},
-                              {4, 2, 1,},
-                              {4, 0, 2}
-    };
+    vector<vector_cords> vertices(12);
+    vertices[0] = {0, r, 0};
+    vertices[11] = {0, -r, 0};
 
-    // Shifting
-    for(int i = 0; i < 6; i++)
-        vertices[i] = vertices[i] * r + center;
-    // 8 polygons (they are triangles)
-    for(int i = 0; i < 8; i++)
-        polygons.push_back({vertices[order[i][0]], vertices[order[i][1]], vertices[order[i][2]], color});
-    // cout << "Creating octahedron done\n";
+    for (int i = 1; i < 6; i++) {
+        vertices[i] = {r * sin(current_angle) * cos(magic_angle),
+                       r * sin(magic_angle),
+                       r * cos(curreng_angle) * cos(magic_angle)};
+        current_angle += segment_angle;
+    }
+
+    current_angle = M_PI * 36 / 180;
+
+    for (int i = 6; i < 11; i++) {
+        vertices[i] = {r * sin(current_angle) * cos(-magic_angle),
+                       r * sin(-magic_angle),
+                       r * cos(curreng_angle) * cos(-magic_angle)};
+        current_angle += segment_angle;
+    }
+
+    for (auto &j: vertices) {
+        j.x = j.x * r + center.x;
+        j.y = j.y * r + center.y;
+        j.z = j.z * r + center.z;
+    }
+
+    polygons.push_back({vertices[0], vertices[1], vertices[2], color});
+    polygons.push_back({vertices[0], vertices[2], vertices[3], color});
+    polygons.push_back({vertices[0], vertices[3], vertices[4], color});
+    polygons.push_back({vertices[0], vertices[4], vertices[5], color});
+    polygons.push_back({vertices[0], vertices[5], vertices[1], color});
+
+    polygons.push_back({vertices[11], vertices[7], vertices[6], color});
+    polygons.push_back({vertices[11], vertices[8], vertices[7], color});
+    polygons.push_back({vertices[11], vertices[9], vertices[8], color});
+    polygons.push_back({vertices[11], vertices[10], vertices[9], color});
+    polygons.push_back({vertices[11], vertices[6], vertices[10], color});
+
+    polygons.push_back({vertices[2], vertices[1], vertices[6], color});
+    polygons.push_back({vertices[3], vertices[2], vertices[7], color});
+    polygons.push_back({vertices[4], vertices[3], vertices[8], color});
+    polygons.push_back({vertices[5], vertices[4], vertices[9], color});
+    polygons.push_back({vertices[1], vertices[5], vertices[10], color});
+
+    polygons.push_back({vertices[6], vertices[7], vertices[2], color});
+    polygons.push_back({vertices[7], vertices[8], vertices[3], color});
+    polygons.push_back({vertices[8], vertices[9], vertices[4], color});
+    polygons.push_back({vertices[9], vertices[10], vertices[5], color});
+    polygons.push_back({vertices[10], vertices[6], vertices[1], color});
 }
 
-void dodecahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
+void dodecahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) { // +++++++
     // cout << "Creating dodecahedron\n";
 
     color = normalise_color(color);
@@ -557,9 +584,9 @@ int main(int argc, char* argv[]) {
 
     // Figures params with creating
     cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
-    cube(center, radius, color, polygons);
+    hexahedron(center, radius, color, polygons);
     cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
-    octahedron(center, radius, color, polygons);
+    icosahedron(center, radius, color, polygons);
     cin >> center.x >> center.y >> center.z >> color.x >> color.y >> color.z >> radius >> unused >> unused >> unused;
     dodecahedron(center, radius, color, polygons);
 
