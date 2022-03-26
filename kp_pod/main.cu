@@ -636,12 +636,11 @@ int main(int argc, char *argv[]) {
         int p_size = trigs.size();
         int ssaa_h = h * rays_sqrt;
 
-        int res;
         if (is_gpu)
-            res = gpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
+            gpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
                            light_pos, light_col, trigs_as_array, p_size, rays_sqrt);
         else
-            res = cpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
+            cpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
                            light_pos, light_col, trigs_as_array, p_size, rays_sqrt);
 
         auto end = std::chrono::steady_clock::now();
