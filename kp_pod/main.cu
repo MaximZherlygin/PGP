@@ -505,7 +505,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    bool gpu_mode = argc == 1 || arg == "--gpu";
+    bool is_gpu = argc == 1 || arg == "--gpu";
 
     std::string temp;
 
@@ -595,12 +595,12 @@ int main(int argc, char* argv[]) {
     uchar4* pixels = new uchar4[w * h * rays_squrt * rays_squrt];
     uchar4* pixels_ssaa = new uchar4[w * h * rays_squrt * rays_squrt];
 
-    std::cout << "Polygons count: " << polygons.size() << "\n"
+    std::cout << "Polygons count: " << polygons.size() << "\n";
     std::cout << "Image size: " << w << " " << h << "\n";
     std::cout << "Frames summ: " << frames_count << "\n";
 
     for (int i = 0; i < frames_count; i++) {
-        auto time_start = chrono::steady_clock::now();
+        auto time_start = std::chrono::steady_clock::now();
         double t = 2.0 * i * M_PI / frames_count;
 
         // Movement
@@ -623,7 +623,7 @@ int main(int argc, char* argv[]) {
         sum_of_rays = w * rays_squrt * h * rays_squrt;
 
         int res;
-        if (gpu_mode)
+        if (is_gpu)
             res = gpu_mode(p_c, p_v, w, w * rays_squrt, h, h * rays_squrt, (double)view_angle, pixels, pixels_ssaa,
                            light_pos, light_col, polygons_as_array, polygons.size(), rays_squrt);
         else
@@ -632,14 +632,15 @@ int main(int argc, char* argv[]) {
         if (res)
             std::cout << "An error occurred. Check output\n";
 
-        auto end = chrono::steady_clock::now();
+        auto end = std::chrono::steady_clock::now();
         std::cout << "|\tIteration " << i + 1 << " of " << frames_count << "\t|\t";
-        double iteration_time = ((double)chrono::duration_cast<chrono::microseconds>(end - time_start).count()) / 1000.0;
+        double iteration_time = ((double)std::chrono::duration_cast<chrono::microseconds>(end - time_start).count()) / 1000.0;
         total_duration_time += iteration_time;
         std::cout << iteration_time << "ms\t|\t";
         std::cout << sum_of_rays << "\t\t|\n";
 
-        replace(path_to_frames, '%d', to_string(i));
+        std::string iter = std::to_string(i)
+        replace(path_to_frames, "%d", iter);
         FILE* fp = fopen(path_to_frames.c_str(), "wb");
         fwrite(&w, sizeof(int), 1, fp); // тут падает
         fwrite(&h, sizeof(int), 1, fp);
