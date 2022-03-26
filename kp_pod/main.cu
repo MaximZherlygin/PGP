@@ -353,39 +353,37 @@ void icosahedron(vec3 center, double radius, vec3 color, std::vector <triangle> 
     trigs.push_back({vertices[11], vertices[6], vertices[10], color});
 }
 
-void dodecahedron(vec3 center, double r, vec3 color, std::vector<triangle>& trigs) { // +++++++
+void dodecahedron(const vec3 center, const double r, vec3 color, std::vector<triangle>& trigs) { // +++++++
 
     color = normalise_color(color);
-    double a = (1 + sqrt(5)) / 2;
-    double b = 2 / (1 + sqrt(5));
 
-    std::vector<vec3> vertices {{-b, 0, a} ,
-                                { b, 0, a} ,
-                                {-1, 1, 1} ,
-                                { 1, 1, 1} ,
-                                { 1, -1, 1} ,
-                                {-1, -1, 1} ,
-                                { 0, -a, b} ,
-                                { 0, a, b} ,
-                                {-a, -b, 0} ,
-                                {-a, b, 0} ,
-                                { a, b, 0} ,
-                                { a, -b, 0} ,
-                                { 0, -a, -b} ,
-                                { 0, a, -b} ,
-                                { 1, 1, -1} ,
-                                { 1, -1, -1} ,
-                                {-1, -1, -1} ,
-                                {-1, 1, -1} ,
-                                { b, 0, -a} ,
-                                {-b, 0, -a}
+    std::vector<vec3> vertices {{-(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
+                                {(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
+                                {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                                {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                                {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                                {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                                {0, -((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3)},
+                                {0, ((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3)},
+                                {-((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3), 0},
+                                {-((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3), 0},
+                                {((1 + sqrt(5)) / 2) / sqrt(3), (2 / (1 + sqrt(5))) / sqrt(3), 0},
+                                {((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3), 0},
+                                {0, -((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3)},
+                                {0, ((1 + sqrt(5)) / 2) / sqrt(3), -(2 / (1 + sqrt(5))) / sqrt(3)},
+                                {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                                {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                                {-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                                {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                                {(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)},
+                                {-(2 / (1 + sqrt(5))) / sqrt(3), 0, -((1 + sqrt(5)) / 2) / sqrt(3)}
     };
-
-    for (auto &j: vertices) {
-        j.x /= sqrt(3);
-        j.y /= sqrt(3);
-        j.z /= sqrt(3);
-    }
+//
+//    for (auto &j: vertices) {
+//        j.x /= sqrt(3);
+//        j.y /= sqrt(3);
+//        j.z /= sqrt(3);
+//    }
 
     for (auto &j: vertices) {
         j.x = j.x * r + center.x;
