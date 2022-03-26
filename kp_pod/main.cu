@@ -303,7 +303,7 @@ void icosahedron(vector_cords center, double r, vector_cords color, vector<polyg
     for (int i = 1; i < 6; i++) {
         vertices[i] = {r * sin(current_angle) * cos(magic_angle),
                        r * sin(magic_angle),
-                       r * cos(curreng_angle) * cos(magic_angle)};
+                       r * cos(current_angle) * cos(magic_angle)};
         current_angle += segment_angle;
     }
 
@@ -312,7 +312,7 @@ void icosahedron(vector_cords center, double r, vector_cords color, vector<polyg
     for (int i = 6; i < 11; i++) {
         vertices[i] = {r * sin(current_angle) * cos(-magic_angle),
                        r * sin(-magic_angle),
-                       r * cos(curreng_angle) * cos(-magic_angle)};
+                       r * cos(current_angle) * cos(-magic_angle)};
         current_angle += segment_angle;
     }
 
