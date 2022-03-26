@@ -255,7 +255,7 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
 }
 
 void cube(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
-    cout << "Creating cube\n";
+    // cout << "Creating cube\n";
 
     color = normalise_color(color);
 
@@ -285,11 +285,11 @@ void cube(vector_cords center, double r, vector_cords color, vector<polygon> &po
     polygons.push_back({point_a * r + center, point_e * r + center, point_f * r + center, color});
     polygons.push_back({point_c * r + center, point_d * r + center, point_h * r + center, color});
     polygons.push_back({point_c * r + center, point_g * r + center, point_h * r + center, color});
-    cout << "Creating cube done\n";
+    // cout << "Creating cube done\n";
 }
 
 void octahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
-    cout << "Creating octahedron\n";
+    // cout << "Creating octahedron\n";
 
     color = normalise_color(color);
     // Start from fixed points and shift after
@@ -317,11 +317,11 @@ void octahedron(vector_cords center, double r, vector_cords color, vector<polygo
     // 8 polygons (they are triangles)
     for(int i = 0; i < 8; i++)
         polygons.push_back({vertices[order[i][0]], vertices[order[i][1]], vertices[order[i][2]], color});
-    cout << "Creating octahedron done\n";
+    // cout << "Creating octahedron done\n";
 }
 
 void dodecahedron(vector_cords center, double r, vector_cords color, vector<polygon> &polygons) {
-    cout << "Creating dodecahedron\n";
+    // cout << "Creating dodecahedron\n";
 
     color = normalise_color(color);
     double a = (1 + sqrt(5)) / 2;
@@ -400,12 +400,12 @@ void dodecahedron(vector_cords center, double r, vector_cords color, vector<poly
     polygons.push_back({vertices[17], vertices[13], vertices[19], color});
     polygons.push_back({vertices[13], vertices[14], vertices[18], color});
 
-    cout << "Creating dodecahedron done\n";
+    // cout << "Creating dodecahedron done\n";
 }
 
 void scene(vector_cords a, vector_cords b, vector_cords c, vector_cords d, vector_cords color,
            vector<polygon> &polygons) {
-    cout << "Creating scene\n";
+    // cout << "Creating scene\n";
     color = normalise_color(color);
     polygons.push_back(polygon{a, b, c, color});
     polygons.push_back(polygon{c, d, a, color});
