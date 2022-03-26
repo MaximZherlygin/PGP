@@ -297,22 +297,22 @@ void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygo
     double current_angle = 0.0;
 
     vector<vec3> vertices(12);
-    vertices[0] = {0, radius, 0};
-    vertices[11] = {0, -radius, 0};
+    vertices[0] = {0, 0, radius};
+    vertices[11] = {0, 0, -radius};
 
     for (int i = 1; i < 6; i++) {
         vertices[i] = {radius * sin(current_angle) * cos(angle),
-                       radius * sin(angle),
-                       radius * cos(current_angle) * cos(angle)};
+                       radius * cos(current_angle) * cos(angle),
+                       radius * sin(angle)};
         current_angle += segment_angle;
     }
 
     current_angle = M_PI * 36 / 180;
 
     for (int i = 6; i < 11; i++) {
-        vertices[i] = {radius * sin(current_angle) * cos(-angle),
-                       radius * sin(-angle),
-                       radius * cos(current_angle) * cos(-angle)};
+        vertices[i] = {radius * sin(current_angle) * cos(angle),
+                       radius * cos(current_angle) * cos(angle),
+                       radius * sin(angle)};
         current_angle += segment_angle;
     }
 
