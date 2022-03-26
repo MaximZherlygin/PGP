@@ -291,6 +291,8 @@ void hexahedron(vec3 center, double r, vec3 color, vector<polygon> &polygons) { 
 }
 
 void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygons) {
+    color = normalise_color(color);
+
     double atctan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
     double angle = M_PI * atctan_1_2 / 180;
     double segment_angle = M_PI * 72 / 180;
