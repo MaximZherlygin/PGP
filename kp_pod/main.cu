@@ -317,9 +317,9 @@ void icosahedron(vector_cords center, double r, vector_cords color, vector<polyg
     }
 
     for (auto &j: vertices) {
-        j.x = j.x * r + center.x;
-        j.y = j.y * r + center.y;
-        j.z = j.z * r + center.z;
+        j.x = j.x + center.x;
+        j.y = j.y + center.y;
+        j.z = j.z + center.z;
     }
 
     polygons.push_back({vertices[0], vertices[1], vertices[2], color});
