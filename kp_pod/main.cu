@@ -584,8 +584,8 @@ int main(int argc, char* argv[]) {
     std::cin >> light_pos.x >> light_pos.y >> light_pos.z >> light_col.x >> light_col.y >> light_col.z;
 
     int rec; // Should be 1 (unused)
-    int rays_squrt;
-    std::cin >> rec >> rays_squrt;
+    int rays_sqrt;
+    std::cin >> rec >> rays_sqrt;
 
     int sum_of_rays;
 
@@ -593,8 +593,8 @@ int main(int argc, char* argv[]) {
 
     polygon* polygons_as_array;
     polygons_as_array = polygons.data();
-    uchar4* pixels = new uchar4[w * h * rays_squrt * rays_squrt];
-    uchar4* pixels_ssaa = new uchar4[w * h * rays_squrt * rays_squrt];
+    uchar4* pixels = new uchar4[w * h * rays_sqrt * rays_sqrt];
+    uchar4* pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
 
     std::cout << "Polygons count: " << polygons.size() << "\n";
     std::cout << "Image size: " << w << " " << h << "\n";
@@ -621,15 +621,17 @@ int main(int argc, char* argv[]) {
                     z_v };
 
         // Total sum of rays (will be the same coz of recursion)
-        sum_of_rays = w * rays_squrt * h * rays_squrt;
+        sum_of_rays = w * h * rays_sqrt * rays_sqrt;
+        int p_size = polygons.size();
+        int ssaa_h = h * rays_sqrt;
 
         int res;
         if (is_gpu)
-            res = gpu_mode(p_c, p_v, w, w * rays_squrt, h, h * rays_squrt, (double)view_angle, pixels, pixels_ssaa,
-                           light_pos, light_col, polygons_as_array, polygons.size(), rays_squrt);
+            res = gpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double)view_angle, pixels, pixels_ssaa,
+                           light_pos, light_col, polygons_as_array, p_size, rays_sqrt);
         else
-            res = cpu_mode(p_c, p_v, w, w * rays_squrt, h, h * rays_squrt, (double)view_angle, pixels, pixels_ssaa,
-                           light_pos, light_col, polygons_as_array, polygons.size(), rays_squrt);
+            res = cpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double)view_angle, pixels, pixels_ssaa,
+                           light_pos, light_col, polygons_as_array, p_size, rays_sqrt);
         if (res)
             std::cout << "An error occurred. Check output\n";
 
