@@ -634,12 +634,12 @@ int main(int argc, char* argv[]) {
 
         auto end = std::chrono::steady_clock::now();
         std::cout << "|\tIteration " << i + 1 << " of " << frames_count << "\t|\t";
-        double iteration_time = ((double)std::chrono::duration_cast<chrono::microseconds>(end - time_start).count()) / 1000.0;
+        double iteration_time = ((double)std::chrono::duration_cast<std::chrono::microseconds>(end - time_start).count()) / 1000.0;
         total_duration_time += iteration_time;
         std::cout << iteration_time << "ms\t|\t";
         std::cout << sum_of_rays << "\t\t|\n";
 
-        std::string iter = std::to_string(i)
+        std::string iter = std::to_string(i);
         replace(path_to_frames, "%d", iter);
         FILE* fp = fopen(path_to_frames.c_str(), "wb");
         fwrite(&w, sizeof(int), 1, fp); // тут падает
