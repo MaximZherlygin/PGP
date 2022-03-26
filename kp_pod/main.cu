@@ -322,29 +322,29 @@ void icosahedron(vec3 center, double radius, vec3 color, vector<polygon> &polygo
         j.z = j.z + center.z;
     }
 
-    polygons.push_back({vertices[10], vertices[6], vertices[1], color});
-    polygons.push_back({vertices[9], vertices[10], vertices[5], color});
-    polygons.push_back({vertices[8], vertices[9], vertices[4], color});
-    polygons.push_back({vertices[7], vertices[8], vertices[3], color});
-    polygons.push_back({vertices[6], vertices[7], vertices[2], color});
+    polygons.push_back({vertices[0], vertices[1], vertices[2], color});
+    polygons.push_back({vertices[0], vertices[2], vertices[3], color});
+    polygons.push_back({vertices[0], vertices[3], vertices[4], color});
+    polygons.push_back({vertices[0], vertices[4], vertices[5], color});
+    polygons.push_back({vertices[0], vertices[5], vertices[1], color});
 
     polygons.push_back({vertices[1], vertices[5], vertices[10], color});
-    polygons.push_back({vertices[5], vertices[4], vertices[9], color});
-    polygons.push_back({vertices[4], vertices[3], vertices[8], color});
-    polygons.push_back({vertices[3], vertices[2], vertices[7], color});
     polygons.push_back({vertices[2], vertices[1], vertices[6], color});
+    polygons.push_back({vertices[3], vertices[2], vertices[7], color});
+    polygons.push_back({vertices[4], vertices[3], vertices[8], color});
+    polygons.push_back({vertices[5], vertices[4], vertices[9], color});
 
-    polygons.push_back({vertices[11], vertices[6], vertices[10], color});
-    polygons.push_back({vertices[11], vertices[10], vertices[9], color});
-    polygons.push_back({vertices[11], vertices[9], vertices[8], color});
-    polygons.push_back({vertices[11], vertices[8], vertices[7], color});
+    polygons.push_back({vertices[6], vertices[7], vertices[2], color});
+    polygons.push_back({vertices[7], vertices[8], vertices[3], color});
+    polygons.push_back({vertices[8], vertices[9], vertices[4], color});
+    polygons.push_back({vertices[9], vertices[10], vertices[5], color});
+    polygons.push_back({vertices[10], vertices[6], vertices[1], color});
+
     polygons.push_back({vertices[11], vertices[7], vertices[6], color});
-
-    polygons.push_back({vertices[0], vertices[5], vertices[1], color});
-    polygons.push_back({vertices[0], vertices[4], vertices[5], color});
-    polygons.push_back({vertices[0], vertices[3], vertices[4], color});
-    polygons.push_back({vertices[0], vertices[2], vertices[3], color});
-    polygons.push_back({vertices[0], vertices[1], vertices[2], color});
+    polygons.push_back({vertices[11], vertices[8], vertices[7], color});
+    polygons.push_back({vertices[11], vertices[9], vertices[8], color});
+    polygons.push_back({vertices[11], vertices[10], vertices[9], color});
+    polygons.push_back({vertices[11], vertices[6], vertices[10], color});
 }
 
 void dodecahedron(vec3 center, double r, vec3 color, vector<polygon> &polygons) { // +++++++
