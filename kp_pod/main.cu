@@ -78,7 +78,7 @@ __host__ __device__ vec3 normalize(vec3 hs) {
     return result;
 }
 
-__host__ __device__ vec3 crossing(vec3 lhs, vec3 rhs) {
+__host__ __device__ vec3 prod(vec3 lhs, vec3 rhs) {
     vec3 result;
     result.x = lhs.y * rhs.z - lhs.z * rhs.y;
     result.y = lhs.z * rhs.x - lhs.x * rhs.z;
@@ -96,77 +96,64 @@ __host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3
 
 __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
                                    vec3 light_color, triangle *trigs, int rays_sqrt) {
-    int min_value = -1;
+    int k_min = -1;
     double ts_min;
-    for (int i = 0; i < rays_sqrt; ++i) {
-        vec3 e1 = trigs[i].vert2 - trigs[i].vert1;
-        vec3 e2 = trigs[i].vert3 - trigs[i].vert1;
-        vec3 p = crossing(dir, e2);
+    for (int k = 0; k < rays_sqrt; k++) {
+        vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
+        vec3 e2 = trigs[k].vert3 - trigs[k].vert1;
+        vec3 p = prod(dir, e2);
         double div = p * e1;
-
         if (fabs(div) < 1e-10)
             continue;
-
-        vec3 t = pos - trigs[i].vert1;
+        vec3 t = pos - trigs[k].vert1;
         double u = (p * t) / div;
         if (u < 0.0 || u > 1.0)
             continue;
-
-        vec3 q = crossing(t, e1);
+        vec3 q = prod(t, e1);
         double v = (q * dir) / div;
         if (v < 0.0 || v + u > 1.0)
             continue;
-
         double ts = (q * e2) / div;
         if (ts < 0.0)
             continue;
-
-        if (min_value == -1 || ts < ts_min) {
-            min_value = i;
+        if (k_min == -1 || ts < ts_min) {
+            k_min = k;
             ts_min = ts;
         }
     }
-
-    if (min_value == -1)
+    if (k_min == -1)
         return {0, 0, 0, 0};
 
-    pos = dir * ts_min + pos;
-    dir = light_pos - pos;
-    double length = sqrt(dir * dir);
-    dir = normalize(dir);
-
-    for (int i = 0; i < rays_sqrt; i++) {
-        vec3 e1 = trigs[i].vert2 - trigs[i].vert1;
-        vec3 e2 = trigs[i].vert3 - trigs[i].vert1;
-        vec3 p = crossing(dir, e2);
-        double div = p * e1;
-
-        if (fabs(div) < 1e-10)
-            continue;
-
-        vec3 t = pos - trigs[i].vert1;
-        double u = (p * t) / div;
-
-        if (u < 0.0 || u > 1.0)
-            continue;
-
-        vec3 q = crossing(t, e1);
-        double v = (q * dir) / div;
-
-        if (v < 0.0 || v + u > 1.0)
-            continue;
-
-        double ts = (q * e2) / div;
-
-        if (ts > 0.0 && ts < length && i != min_value) {
-            return {0, 0, 0, 0};
-        }
-    }
+//    pos = dir * ts_min + pos;
+//    dir = light_pos - pos;
+//    double length = sqrt(dir * dir);
+//    dir = normalize(dir);
+//
+//    for (int k = 0; k < rays_sqrt; k++) {
+//        vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
+//        vec3 e2 = trigs[k].vert3 - trigs[k].vert1;
+//        vec3 p = prod(dir, e2);
+//        double div = p * e1;
+//        if (fabs(div) < 1e-10)
+//            continue;
+//        vec3 t = pos - trigs[k].vert1;
+//        double u = (p * t) / div;
+//        if (u < 0.0 || u > 1.0)
+//            continue;
+//        vec3 q = prod(t, e1);
+//        double v = (q * dir) / div;
+//        if (v < 0.0 || v + u > 1.0)
+//            continue;
+//        double ts = (q * e2) / div;
+//        if (ts > 0.0 && ts < length && k != k_min) {
+//            return {0, 0, 0, 0};
+//        }
+//    }
 
     uchar4 color_min;
-    color_min.x = trigs[min_value].color.x;
-    color_min.y = trigs[min_value].color.y;
-    color_min.z = trigs[min_value].color.z;
+    color_min.x = trigs[k_min].color.x;
+    color_min.y = trigs[k_min].color.y;
+    color_min.z = trigs[k_min].color.z;
 
     color_min.x *= light_color.x;
     color_min.y *= light_color.y;
@@ -181,8 +168,8 @@ void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, ve
     double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
     vec3 b_z = normalize(p_v - p_c);
-    vec3 b_x = normalize(crossing(b_z, {0.0, 0.0, 1.0}));
-    vec3 b_y = normalize(crossing(b_x, b_z));
+    vec3 b_x = normalize(prod(b_z, {0.0, 0.0, 1.0}));
+    vec3 b_y = normalize(prod(b_x, b_z));
     for (int i = 0; i < w; i++)
         for (int j = 0; j < h; j++) {
             vec3 v;
@@ -205,8 +192,8 @@ __global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 
     double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
     vec3 b_z = normalize(p_v - p_c);
-    vec3 b_x = normalize(crossing(b_z, {0.0, 0.0, 1.0}));
-    vec3 b_y = normalize(crossing(b_x, b_z));
+    vec3 b_x = normalize(prod(b_z, {0.0, 0.0, 1.0}));
+    vec3 b_y = normalize(prod(b_x, b_z));
     for (int i = idx; i < w; i += offsetX)
         for (int j = idy; j < h; j += offsetY) {
             vec3 v;
