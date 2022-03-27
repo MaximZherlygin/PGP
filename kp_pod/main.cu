@@ -160,7 +160,7 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
     return out_color;
 }
 
-void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
+void cpu_render(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
                 vec3 light_col, triangle *trigs, int rays_sqrt) {
     double dw = (double) 2.0 / (double) (w - 1.0);
     double dh = (double) 2.0 / (double) (h - 1.0);
@@ -179,7 +179,7 @@ void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, ve
         }
 }
 
-__global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels,
+__global__ void gpu_render(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels,
                            vec3 light_pos, vec3 light_col, triangle *trigs, int rays_sqrt) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int idy = blockDim.y * blockIdx.y + threadIdx.y;
