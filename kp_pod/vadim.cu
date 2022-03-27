@@ -377,10 +377,10 @@ void create_tetrahedral(std::vector<triangle>& trigs, const double& radius, cons
         points[i].z += c_coords.z;
     }
     
-    triags.push_back({points[0], points[1], points[2], color});
-    triags.push_back({points[1], points[3], points[2], color});
-    triags.push_back({points[0], points[2], points[3], color});
-    triags.push_back({points[0], points[3], points[1], color});
+    trigs.push_back({points[0], points[1], points[2], colors});
+    trigs.push_back({points[1], points[3], points[2], colors});
+    trigs.push_back({points[0], points[2], points[3], colors});
+    trigs.push_back({points[0], points[3], points[1], colors});
 }
 
 
