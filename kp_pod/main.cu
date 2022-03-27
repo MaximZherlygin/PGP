@@ -27,9 +27,9 @@ struct vec3 {
 };
 
 struct triangle {
-    vec3 vert1;
-    vec3 vert2;
-    vec3 vert3;
+    vec3 a;
+    vec3 b;
+    vec3 c;
     vec3 color;
 };
 
@@ -94,18 +94,71 @@ __host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3
     return result;
 }
 
-__host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
-                               vec3 light_color, triangle *trigs, int rays_sqrt) {
+void ssaa_cpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int4 mid = {0, 0, 0, 0};
+
+            for (int j = 0; j < k; j++) {
+                for (int i = 0; i < k; i++) {
+                    int index = k * k * y * w + k * j * w + k * x + i;
+                    mid.x += data[index].x;
+                    mid.y += data[index].y;
+                    mid.z += data[index].z;
+                    // mid.w += 0;
+                }
+            }
+            double div = k * k;
+//            out_data[y * w + x].x = (unsigned char) (int) (mid.x / (k * k));
+//            out_data[y * w + x].y = (unsigned char) (int) (mid.y / (k * k));
+//            out_data[y * w + x].z = (unsigned char) (int) (mid.z / (k * k));
+//            out_data[y * w + x].w = 0;
+            out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / div, mid.z / div, 0);
+        }
+    }
+}
+
+__global__ void ssaa_gpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int idy = blockIdx.y * blockDim.y + threadIdx.y;
+    int offsetX = blockDim.x * gridDim.x;
+    int offsetY = blockDim.y * gridDim.y;
+
+    for (int y = idy; y < h; y += offsetY) {
+        for (int x = idx; x < w; x += offsetX) {
+            int4 mid = {0, 0, 0, 0};
+            for (int j = 0; j < k; j++) {
+                for (int i = 0; i < k; i++) {
+                    int index = k * k * y * w + k * j * w + k * x + i;
+                    mid.x += data[index].x;
+                    mid.y += data[index].y;
+                    mid.z += data[index].z;
+                    mid.w += 0;
+                }
+            }
+
+            double div = k * k;
+//            out_data[y * w + x].x = (unsigned char) (int) (mid.x / (k * k));
+//            out_data[y * w + x].y = (unsigned char) (int) (mid.y / (k * k));
+//            out_data[y * w + x].z = (unsigned char) (int) (mid.z / (k * k));
+//            out_data[y * w + x].w = 0;
+            out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / d, mid.z / d, 0);
+        }
+    }
+}
+
+__host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt) {
+    // взято из примера с лекций
     int k_min = -1;
     double ts_min;
     for (int k = 0; k < rays_sqrt; k++) {
-        vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
-        vec3 e2 = trigs[k].vert3 - trigs[k].vert1;
+        vec3 e1 = trigs[k].b - trigs[k].a;
+        vec3 e2 = trigs[k].c - trigs[k].a;
         vec3 p = prod(dir, e2);
         double div = p * e1;
         if (fabs(div) < 1e-10)
             continue;
-        vec3 t = pos - trigs[k].vert1;
+        vec3 t = pos - trigs[k].a;
         double u = (p * t) / div;
         if (u < 0.0 || u > 1.0)
             continue;
@@ -123,20 +176,20 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
     }
     if (k_min == -1)
         return {0, 0, 0, 0};
-
     pos = dir * ts_min + pos;
-    dir = light_pos - pos;
-    double length = sqrt(dir * dir);
+    dir = l_position - pos;
+    
+    double size = sqrt(dir * dir);
+    
     dir = normalize(dir);
-
     for (int k = 0; k < rays_sqrt; k++) {
-        vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
-        vec3 e2 = trigs[k].vert3 - trigs[k].vert1;
+        vec3 e1 = trigs[k].b - trigs[k].a;
+        vec3 e2 = trigs[k].c - trigs[k].a;
         vec3 p = prod(dir, e2);
         double div = p * e1;
         if (fabs(div) < 1e-10)
             continue;
-        vec3 t = pos - trigs[k].vert1;
+        vec3 t = pos - trigs[k].a;
         double u = (p * t) / div;
         if (u < 0.0 || u > 1.0)
             continue;
@@ -145,7 +198,7 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
         if (v < 0.0 || v + u > 1.0)
             continue;
         double ts = (q * e2) / div;
-        if (ts > 0.0 && ts < length && k != k_min) {
+        if (ts > 0.0 && ts < size && k != k_min) {
             return {0, 0, 0, 0};
         }
     }
@@ -155,15 +208,15 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
     color_min.y = trigs[k_min].color.y;
     color_min.z = trigs[k_min].color.z;
 
-    color_min.x *= light_color.x;
-    color_min.y *= light_color.y;
-    color_min.z *= light_color.z;
+    color_min.x *= l_color.x;
+    color_min.y *= l_color.y;
+    color_min.z *= l_color.z;
     color_min.w = 0;
     return color_min;
 }
 
-void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
-                vec3 light_col, triangle *trigs, int rays_sqrt) {
+void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt) {
+    // из примера с лекций
     double dw = (double) 2.0 / (double) (w - 1.0);
     double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
@@ -177,7 +230,7 @@ void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, ve
             v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
             v.z = z;
             vec3 dir = mult(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), light_pos, light_col, trigs, rays_sqrt);
+            pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), l_position, l_color, trigs, rays_sqrt);
         }
 }
 
@@ -203,53 +256,6 @@ __global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 
             vec3 dir = mult(b_x, b_y, b_z, v);
             pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), light_pos, light_col, trigs, rays_sqrt);
         }
-}
-
-void ssaa_cpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int4 mid_pixel = {0, 0, 0, 0};
-            for (int j = 0; j < coeff; j++) {
-                for (int i = 0; i < coeff; i++) {
-                    int index = y * w * coeff * coeff + x * coeff + j * w * coeff + i;
-                    mid_pixel.x += ssaa_pixels[index].x;
-                    mid_pixel.y += ssaa_pixels[index].y;
-                    mid_pixel.z += ssaa_pixels[index].z;
-                    mid_pixel.w += 0;
-                }
-            }
-            pixels[y * w + x].x = (unsigned char) (int) (mid_pixel.x / (coeff * coeff));
-            pixels[y * w + x].y = (unsigned char) (int) (mid_pixel.y / (coeff * coeff));
-            pixels[y * w + x].z = (unsigned char) (int) (mid_pixel.z / (coeff * coeff));
-            pixels[y * w + x].w = 0;
-        }
-    }
-}
-
-__global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int idy = blockIdx.y * blockDim.y + threadIdx.y;
-    int offsetX = blockDim.x * gridDim.x;
-    int offsetY = blockDim.y * gridDim.y;
-
-    for (int y = idy; y < h; y += offsetY) {
-        for (int x = idx; x < w; x += offsetX) {
-            int4 mid = {0, 0, 0, 0};
-            for (int j = 0; j < coeff; j++) {
-                for (int i = 0; i < coeff; i++) {
-                    int index = y * w * coeff * coeff + x * coeff + j * w * coeff + i;
-                    mid.x += ssaa_pixels[index].x;
-                    mid.y += ssaa_pixels[index].y;
-                    mid.z += ssaa_pixels[index].z;
-                    mid.w += 0;
-                }
-            }
-            pixels[y * w + x].x = (unsigned char) (mid.x / (coeff * coeff));
-            pixels[y * w + x].y = (unsigned char) (mid.y / (coeff * coeff));
-            pixels[y * w + x].z = (unsigned char) (mid.z / (coeff * coeff));
-            pixels[y * w + x].w = 0;
-        }
-    }
 }
 
 void create_hexahedron(std::vector<triangle>& trigs, const double& radius, const vec3& c_coords, const vec3& colors) { // ++++++
