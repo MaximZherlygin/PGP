@@ -41,6 +41,31 @@ bool replace(std::string &str, const std::string &from, const std::string &to) {
     return true;
 }
 
+__host__ __device__ vec3 normalize(vec3 hs) {
+    vec3 result;
+    result.x = hs.x / sqrt(hs * hs);
+    result.y = hs.y / sqrt(hs * hs);
+    result.z = hs.z / sqrt(hs * hs);
+    return result;
+}
+
+__host__ __device__ vec3 prod(vec3 lhs, vec3 rhs) {
+    vec3 result;
+    result.x = lhs.y * rhs.z - lhs.z * rhs.y;
+    result.y = lhs.z * rhs.x - lhs.x * rhs.z;
+    result.z = lhs.x * rhs.y - lhs.y * rhs.x;
+    return result;
+}
+
+__host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3 multipy_hs) {
+    vec3 result;
+    result.x = first_hs.x * multipy_hs.x + second_hs.x * multipy_hs.y + third_hs.x * multipy_hs.z;
+    result.y = first_hs.y * multipy_hs.x + second_hs.y * multipy_hs.y + third_hs.y * multipy_hs.z;
+    result.z = first_hs.z * multipy_hs.x + second_hs.z * multipy_hs.y + third_hs.z * multipy_hs.z;
+    return result;
+}
+
+
 __host__ __device__ vec3 operator+(vec3 lhs, vec3 rhs) {
     vec3 result;
     result.x = lhs.x + rhs.x;
@@ -70,31 +95,7 @@ __host__ __device__ vec3 operator*(vec3 lhs, double rhs) {
     return result;
 }
 
-__host__ __device__ vec3 normalize(vec3 hs) {
-    vec3 result;
-    result.x = hs.x / sqrt(hs * hs);
-    result.y = hs.y / sqrt(hs * hs);
-    result.z = hs.z / sqrt(hs * hs);
-    return result;
-}
-
-__host__ __device__ vec3 prod(vec3 lhs, vec3 rhs) {
-    vec3 result;
-    result.x = lhs.y * rhs.z - lhs.z * rhs.y;
-    result.y = lhs.z * rhs.x - lhs.x * rhs.z;
-    result.z = lhs.x * rhs.y - lhs.y * rhs.x;
-    return result;
-}
-
-__host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3 multipy_hs) {
-    vec3 result;
-    result.x = first_hs.x * multipy_hs.x + second_hs.x * multipy_hs.y + third_hs.x * multipy_hs.z;
-    result.y = first_hs.y * multipy_hs.x + second_hs.y * multipy_hs.y + third_hs.y * multipy_hs.z;
-    result.z = first_hs.z * multipy_hs.x + second_hs.z * multipy_hs.y + third_hs.z * multipy_hs.z;
-    return result;
-}
-
-void ssaa_cpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
+void ssaa_cpu(uchar4 *data, uchar4 *out_data, int w, int h, int k) {
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             int4 mid = {0, 0, 0, 0};
@@ -113,7 +114,7 @@ void ssaa_cpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
     }
 }
 
-__global__ void ssaa_gpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
+__global__ void ssaa_gpu(uchar4 *data, uchar4 *out_data, int w, int h, int k) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int idy = blockIdx.y * blockDim.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -240,6 +241,41 @@ __global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4*
             vec3 dir = mult(b_x, b_y, b_z, v);
             data[(h - 1 - j) * w + i] = ray(pc, normalize(dir), l_position, l_color, trigs, rays_sqrt);
         }
+}
+
+void cpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs, vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, int rays_sqrt, int k) {
+    cpu_render(p_c, p_v, s_w, s_h, angle, s_data, l_position, l_color, trigs, rays_sqrt);
+    ssaa_cpu(s_data, data, w, h, k);
+}
+
+int gpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs, vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, int rays_sqrt, int k) {
+    uchar4 *gpu_data;
+    uchar4 *gpu_s_data;
+    triangle *gpu_trigs;
+
+    CSC(cudaMalloc((uchar4**)(&gpu_data), w * h * sizeof(uchar4)));
+    CSC(cudaMemcpy(gpu_data, data, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
+
+    CSC(cudaMalloc((uchar4**)(&gpu_s_data), s_w * s_h * sizeof(uchar4)));
+    CSC(cudaMemcpy(gpu_s_data, s_data, s_w * s_h * sizeof(uchar4), cudaMemcpyHostToDevice));
+
+    CSC(cudaMalloc((triangle**) (&gpu_trigs), rays_sqrt * sizeof(triangle)));
+    CSC(cudaMemcpy(gpu_trigs, trigs, rays_sqrt * sizeof(triangle), cudaMemcpyHostToDevice));
+
+    gpu_render<<<256, 256>>>(p_c, p_v, s_w, s_h, angle, gpu_s_data, l_position, l_color, gpu_trigs, rays_sqrt);
+
+    cudaThreadSynchronize();
+    CSC(cudaGetLastError());
+
+    ssaa_gpu<<<256, 256>>>(gpu_s_data, gpu_data, w, h, k);
+
+    cudaThreadSynchronize();
+    CSC(cudaGetLastError());
+    CSC(cudaMemcpy(data, gpu_data, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
+    CSC(cudaFree(gpu_data));
+    CSC(cudaFree(gpu_trigs));
+    CSC(cudaFree(gpu_s_data));
+    return 0;
 }
 
 
@@ -423,40 +459,6 @@ void create_hexahedron(std::vector<triangle>& trigs, const double& radius, const
     trigs.push_back({points[2], points[6], points[7], colors});
 }
 
-void cpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt, int k) {
-    cpu_render(p_c, p_v, s_w, s_h, angle, s_data, l_position, l_color, trigs, rays_sqrt);
-    ssaa_cpu(data, w, h, k, s_data);
-}
-
-int gpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt, int k) {
-    uchar4 *gpu_data;
-    uchar4 *gpu_s_data;
-    triangle *gpu_trigs;
-
-    CSC(cudaMalloc((uchar4**)(&gpu_data), w * h * sizeof(uchar4)));
-    CSC(cudaMemcpy(gpu_data, data, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
-
-    CSC(cudaMalloc((uchar4**)(&gpu_s_data), s_w * s_h * sizeof(uchar4)));
-    CSC(cudaMemcpy(gpu_s_data, s_data, s_w * s_h * sizeof(uchar4), cudaMemcpyHostToDevice));
-
-    CSC(cudaMalloc((triangle**) (&gpu_trigs), rays_sqrt * sizeof(triangle)));
-    CSC(cudaMemcpy(gpu_trigs, trigs, rays_sqrt * sizeof(triangle), cudaMemcpyHostToDevice));
-
-    gpu_render <<< 128, 128 >>>(p_c, p_v, s_w, s_h, angle, gpu_s_data, l_position, l_color, gpu_trigs, rays_sqrt);
-
-    cudaThreadSynchronize();
-    CSC(cudaGetLastError());
-
-    ssaa_gpu <<< 128, 128 >>>(gpu_data, w, h, k, gpu_s_data);
-
-    cudaThreadSynchronize();
-    CSC(cudaGetLastError());
-    CSC(cudaMemcpy(data, gpu_data, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
-    CSC(cudaFree(gpu_data));
-    CSC(cudaFree(gpu_trigs));
-    CSC(cudaFree(gpu_s_data));
-    return 0;
-}
 
 int main(int argc, char *argv[]) {
     std::string arg;
@@ -464,7 +466,7 @@ int main(int argc, char *argv[]) {
 
     if (arg == "--default") {
         std::cout << "100" << "\n";
-        std::cout << "./out" << "\n";
+        std::cout << "./out/img_%d.data" << "\n";
         std::cout << "640 480 120" << "\n";
         std::cout << "7.0 3.0 0.0 2.0 1.0 2.0 6.0 1.0 0.0 0.0" << "\n";
         std::cout << "2.0 0.0 0.0 0.5 0.1 1.0 4.0 1.0 0.0 0.0" << "\n";
@@ -603,12 +605,11 @@ int main(int argc, char *argv[]) {
 
         sum_of_rays = w * h * rays_sqrt * rays_sqrt;
         int p_size = trigs.size();
-        // int ssaa_h = h * rays_sqrt;
 
         if (!is_gpu) {
-            cpu_mode(pixels, pixels_ssaa, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, trigs_arr, p_size, rays_sqrt);
+            cpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, p_size, rays_sqrt);
         } else {
-            gpu_mode(pixels, pixels_ssaa, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, trigs_arr, p_size, rays_sqrt);
+            gpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, p_size, rays_sqrt);
         }
 
         auto end = std::chrono::steady_clock::now();
