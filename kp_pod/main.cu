@@ -455,6 +455,7 @@ int gpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int 
     CSC(cudaFree(gpu_data));
     CSC(cudaFree(gpu_trigs));
     CSC(cudaFree(gpu_s_data));
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
