@@ -126,9 +126,8 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
 
     pos = dir * ts_min + pos;
     dir = light_pos - pos;
+    double length = sqrt(dir * dir);
     dir = normalize(dir);
-
-    double size = sqrt(dir * dir);
 
     for (int k = 0; k < rays_sqrt; k++) {
         vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
@@ -146,18 +145,21 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
         if (v < 0.0 || v + u > 1.0)
             continue;
         double ts = (q * e2) / div;
-        if (ts > 0.0 && ts < size && k != k_min) {
+        if (ts > 0.0 && ts < length && k != k_min) {
             return {0, 0, 0, 0};
         }
     }
 
-    uchar4 out_color;
-    out_color.x = trigs[k_min].color.x * light_color.x;
-    out_color.y = trigs[k_min].color.y * light_color.y;
-    out_color.z = trigs[k_min].color.z * light_color.z;
-    out_color.w = 0;
+    uchar4 color_min;
+    color_min.x = trigs[k_min].color.x;
+    color_min.y = trigs[k_min].color.y;
+    color_min.z = trigs[k_min].color.z;
 
-    return out_color;
+    color_min.x *= light_color.x;
+    color_min.y *= light_color.y;
+    color_min.z *= light_color.z;
+    color_min.w = 0;
+    return color_min;
 }
 
 void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
