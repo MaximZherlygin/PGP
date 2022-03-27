@@ -27,9 +27,9 @@ struct vec3 {
 };
 
 struct triangle {
-    vec3 p1;
-    vec3 p2;
-    vec3 p3;
+    vec3 vert1;
+    vec3 vert2;
+    vec3 vert3;
     vec3 color;
 };
 
@@ -41,21 +41,20 @@ bool replace(std::string &str, const std::string &from, const std::string &to) {
     return true;
 }
 
-
-__host__ __device__ vec3 operator+(vec3 v1, vec3 v2) {
-    return vec3{v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
+__host__ __device__ vec3 operator+(vec3 lhs, vec3 rhs) {
+    vec3 result;
+    result.x = lhs.x + rhs.x;
+    result.y = lhs.y + rhs.y;
+    result.z = lhs.z + rhs.z;
+    return result;
 }
 
-__host__ __device__ vec3 operator-(vec3 v1, vec3 v2) {
-    return vec3{v1.x - v2.x,
-                v1.y - v2.y,
-                v1.z - v2.z};
-}
-
-__host__ __device__ vec3 operator*(vec3 v, double num) {
-    return vec3{v.x * num,
-                v.y * num,
-                v.z * num};
+__host__ __device__ vec3 operator-(vec3 lhs, vec3 rhs) {
+    vec3 result;
+    result.x = lhs.x - rhs.x;
+    result.y = lhs.y - rhs.y;
+    result.z = lhs.z - rhs.z;
+    return result;
 }
 
 __host__ __device__ double operator*(vec3 lhs, vec3 rhs) {
@@ -63,47 +62,52 @@ __host__ __device__ double operator*(vec3 lhs, vec3 rhs) {
     return result;
 }
 
-__host__ __device__  double len(vec3 v) {
-    return sqrt(v * v);
+__host__ __device__ vec3 operator*(vec3 lhs, double rhs) {
+    vec3 result;
+    result.x = lhs.x * rhs;
+    result.y = lhs.y * rhs;
+    result.z = lhs.z * rhs;
+    return result;
 }
 
-__host__ __device__  vec3 norm(vec3 v) {
-    double num = len(v);
-    return vec3{v.x / num, v.y / num, v.z / num};
+__host__ __device__ vec3 normalize(vec3 hs) {
+    vec3 result;
+    result.x = hs.x / sqrt(hs * hs);
+    result.y = hs.y / sqrt(hs * hs);
+    result.z = hs.z / sqrt(hs * hs);
+    return result;
 }
 
-__host__ __device__ vec3 crossing(vec3 v1, vec3 v2) {
-    return {v1.y * v2.z - v1.z * v2.y,
-            v1.z * v2.x - v1.x * v2.z,
-            v1.x * v2.y - v1.y * v2.x};
+__host__ __device__ vec3 crossing(vec3 lhs, vec3 rhs) {
+    vec3 result;
+    result.x = lhs.y * rhs.z - lhs.z * rhs.y;
+    result.y = lhs.z * rhs.x - lhs.x * rhs.z;
+    result.z = lhs.x * rhs.y - lhs.y * rhs.x;
+    return result;
 }
 
-__host__ __device__ vec3 multiply(vec3 a, vec3 b, vec3 c, vec3 v) {
-    return {a.x * v.x + b.x * v.y + c.x * v.z,
-            a.y * v.x + b.y * v.y + c.y * v.z,
-            a.z * v.x + b.z * v.y + c.z * v.z};
+__host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3 multipy_hs) {
+    vec3 result;
+    result.x = first_hs.x * multipy_hs.x + second_hs.x * multipy_hs.y + third_hs.x * multipy_hs.z;
+    result.y = first_hs.y * multipy_hs.x + second_hs.y * multipy_hs.y + third_hs.y * multipy_hs.z;
+    result.z = first_hs.z * multipy_hs.x + second_hs.z * multipy_hs.y + third_hs.z * multipy_hs.z;
+    return result;
 }
 
-vec3 normalise_color(vec3 color) {
-    return {color.x * 255.,
-            color.y * 255.,
-            color.z * 255.};
-}
-
-__host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
-                                   vec3 light_color, triangle *trigs, int n) {
+__host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
+                                   vec3 light_color, triangle *trigs, int rays_sqrt) {
     int min_value = -1;
     double ts_min;
-    for (int i = 0; i < n; ++i) {
-        vec3 e1 = trigs[i].p2 - trigs[i].p1;
-        vec3 e2 = trigs[i].p3 - trigs[i].p1;
+    for (int i = 0; i < rays_sqrt; ++i) {
+        vec3 e1 = trigs[i].vert2 - trigs[i].vert1;
+        vec3 e2 = trigs[i].vert3 - trigs[i].vert1;
         vec3 p = crossing(dir, e2);
         double div = p * e1;
 
         if (fabs(div) < 1e-10)
             continue;
 
-        vec3 t = pos - trigs[i].p1;
+        vec3 t = pos - trigs[i].vert1;
         double u = (p * t) / div;
         if (u < 0.0 || u > 1.0)
             continue;
@@ -128,19 +132,19 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
 
     pos = dir * ts_min + pos;
     dir = light_pos - pos;
-    double length = len(dir);
-    dir = norm(dir);
+    double length = sqrt(dir * dir);
+    dir = normalize(dir);
 
-    for (int i = 0; i < n; i++) {
-        vec3 e1 = trigs[i].p2 - trigs[i].p1;
-        vec3 e2 = trigs[i].p3 - trigs[i].p1;
+    for (int i = 0; i < rays_sqrt; i++) {
+        vec3 e1 = trigs[i].vert2 - trigs[i].vert1;
+        vec3 e2 = trigs[i].vert3 - trigs[i].vert1;
         vec3 p = crossing(dir, e2);
         double div = p * e1;
 
         if (fabs(div) < 1e-10)
             continue;
 
-        vec3 t = pos - trigs[i].p1;
+        vec3 t = pos - trigs[i].vert1;
         double u = (p * t) / div;
 
         if (u < 0.0 || u > 1.0)
@@ -172,26 +176,26 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
 }
 
 void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
-                vec3 light_col, triangle *trigs, int n) {
+                vec3 light_col, triangle *trigs, int rays_sqrt) {
     double dw = (double) 2.0 / (double) (w - 1.0);
     double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
-    vec3 b_z = norm(p_v - p_c);
-    vec3 b_x = norm(crossing(b_z, {0.0, 0.0, 1.0}));
-    vec3 b_y = norm(crossing(b_x, b_z));
+    vec3 b_z = normalize(p_v - p_c);
+    vec3 b_x = normalize(crossing(b_z, {0.0, 0.0, 1.0}));
+    vec3 b_y = normalize(crossing(b_x, b_z));
     for (int i = 0; i < w; i++)
         for (int j = 0; j < h; j++) {
             vec3 v;
             v.x = (double) -1.0 + dw * (double) i;
             v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
             v.z = z;
-            vec3 dir = multiply(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray_aux(p_c, norm(dir), light_pos, light_col, trigs, n);
+            vec3 dir = mult(b_x, b_y, b_z, v);
+            pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), light_pos, light_col, trigs, rays_sqrt);
         }
 }
 
 __global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels,
-                           vec3 light_pos, vec3 light_col, triangle *trigs, int n) {
+                           vec3 light_pos, vec3 light_col, triangle *trigs, int rays_sqrt) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int idy = blockDim.y * blockIdx.y + threadIdx.y;
     int offsetX = blockDim.x * gridDim.x;
@@ -200,17 +204,17 @@ __global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 
     double dw = (double) 2.0 / (double) (w - 1.0);
     double dh = (double) 2.0 / (double) (h - 1.0);
     double z = 1.0 / tan(fov * M_PI / 360.0);
-    vec3 b_z = norm(p_v - p_c);
-    vec3 b_x = norm(crossing(b_z, {0.0, 0.0, 1.0}));
-    vec3 b_y = norm(crossing(b_x, b_z));
+    vec3 b_z = normalize(p_v - p_c);
+    vec3 b_x = normalize(crossing(b_z, {0.0, 0.0, 1.0}));
+    vec3 b_y = normalize(crossing(b_x, b_z));
     for (int i = idx; i < w; i += offsetX)
         for (int j = idy; j < h; j += offsetY) {
             vec3 v;
             v.x = (double) -1.0 + dw * (double) i;
             v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
             v.z = z;
-            vec3 dir = multiply(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray_aux(p_c, norm(dir), light_pos, light_col, trigs, n);
+            vec3 dir = mult(b_x, b_y, b_z, v);
+            pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), light_pos, light_col, trigs, rays_sqrt);
         }
 }
 
@@ -435,8 +439,6 @@ void create_dodecahedron(std::vector<triangle>& trigs, const double& radius, con
 
 void scene(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color,
            std::vector <triangle> &trigs) {
-    // std::cout << "Creating scene\n";
-    color = normalise_color(color);
     trigs.push_back(triangle{a, b, c, color});
     trigs.push_back(triangle{c, d, a, color});
 }
@@ -450,7 +452,7 @@ int cpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
 }
 
 int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4 *pixels,
-             uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int n, int ssaa_multiplier) {
+             uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int rays_sqrt, int ssaa_multiplier) {
 //    cerr << "Allocate pixels\n";
     // Allocating on gpu
     uchar4 *gpu_pixels;
@@ -462,11 +464,11 @@ int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
     CSC(cudaMemcpy(gpu_pixels_ssaa, pixels_ssaa, ssaa_w * ssaa_h * sizeof(uchar4), cudaMemcpyHostToDevice));
 //    cerr << "Allocate trigs\n";
     triangle *gpu_trigs;
-    CSC(cudaMalloc((triangle **) (&gpu_trigs), n * sizeof(triangle)));
-    CSC(cudaMemcpy(gpu_trigs, trigs, n * sizeof(triangle), cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((triangle **) (&gpu_trigs), rays_sqrt * sizeof(triangle)));
+    CSC(cudaMemcpy(gpu_trigs, trigs, rays_sqrt * sizeof(triangle), cudaMemcpyHostToDevice));
 //    cerr << "Start render\n";
     // Rendering
-    render_gpu <<< 128, 128 >>>(p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_trigs, n);
+    render_gpu <<< 128, 128 >>>(p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_trigs, rays_sqrt);
     cudaThreadSynchronize();
     CSC(cudaGetLastError());
 //    cerr << "Start ssaa\n";
@@ -580,6 +582,9 @@ int main(int argc, char *argv[]) {
     std::cin >> floor_third_point.x >> floor_third_point.y >> floor_third_point.z;
     std::cin >> floor_fourth_point.x >> floor_fourth_point.y >> floor_fourth_point.z;
     std::cin >> temp >> col_values.x >> col_values.y >> col_values.z >> temp;
+    col_values.x *= 255.0;
+    col_values.y *= 255.0;
+    col_values.z *= 255.0;
     scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, trigs);
 
     int n_lights;
