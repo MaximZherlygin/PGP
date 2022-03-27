@@ -378,8 +378,8 @@ void create_dodecahedron(std::vector<triangle>& trigs, const double& radius, con
         points[i].y *= radius;
         points[i].y += c_coords.y;
 
-        points[i].y *= radius;
-        points[i].y += c_coords.y;
+        points[i].z *= radius;
+        points[i].z += c_coords.z;
     }
 
     trigs.push_back({points[4], points[0], points[6], colors});
