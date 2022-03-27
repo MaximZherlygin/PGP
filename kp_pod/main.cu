@@ -124,31 +124,31 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
     if (k_min == -1)
         return {0, 0, 0, 0};
 
-//    pos = dir * ts_min + pos;
-//    dir = light_pos - pos;
-//    double length = sqrt(dir * dir);
-//    dir = normalize(dir);
-//
-//    for (int k = 0; k < rays_sqrt; k++) {
-//        vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
-//        vec3 e2 = trigs[k].vert3 - trigs[k].vert1;
-//        vec3 p = prod(dir, e2);
-//        double div = p * e1;
-//        if (fabs(div) < 1e-10)
-//            continue;
-//        vec3 t = pos - trigs[k].vert1;
-//        double u = (p * t) / div;
-//        if (u < 0.0 || u > 1.0)
-//            continue;
-//        vec3 q = prod(t, e1);
-//        double v = (q * dir) / div;
-//        if (v < 0.0 || v + u > 1.0)
-//            continue;
-//        double ts = (q * e2) / div;
-//        if (ts > 0.0 && ts < length && k != k_min) {
-//            return {0, 0, 0, 0};
-//        }
-//    }
+    pos = dir * ts_min + pos;
+    dir = light_pos - pos;
+    double length = sqrt(dir * dir);
+    dir = normalize(dir);
+
+    for (int k = 0; k < rays_sqrt; k++) {
+        vec3 e1 = trigs[k].vert2 - trigs[k].vert1;
+        vec3 e2 = trigs[k].vert3 - trigs[k].vert1;
+        vec3 p = prod(dir, e2);
+        double div = p * e1;
+        if (fabs(div) < 1e-10)
+            continue;
+        vec3 t = pos - trigs[k].vert1;
+        double u = (p * t) / div;
+        if (u < 0.0 || u > 1.0)
+            continue;
+        vec3 q = prod(t, e1);
+        double v = (q * dir) / div;
+        if (v < 0.0 || v + u > 1.0)
+            continue;
+        double ts = (q * e2) / div;
+        if (ts > 0.0 && ts < length && k != k_min) {
+            return {0, 0, 0, 0};
+        }
+    }
 
     uchar4 color_min;
     color_min.x = trigs[k_min].color.x;
