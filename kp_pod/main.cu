@@ -105,7 +105,6 @@ void ssaa_cpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
                     mid.x += data[index].x;
                     mid.y += data[index].y;
                     mid.z += data[index].z;
-                    // mid.w += 0;
                 }
             }
             double div = k * k;
@@ -129,7 +128,6 @@ __global__ void ssaa_gpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
                     mid.x += data[index].x;
                     mid.y += data[index].y;
                     mid.z += data[index].z;
-                    mid.w += 0;
                 }
             }
 
@@ -218,9 +216,6 @@ void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 *data, vec3
     for (int i = 0; i < w; i++)
         for (int j = 0; j < h; j++) {
             vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
-//            v.x = -1.0 + dw * i;
-//            v.y = (-1.0 + dh * j) * h / w;
-//            v.z = z;
             vec3 dir = mult(bx, by, bz, v);
             data[(h - 1 - j) * w + i] = ray(pc, normalize(dir), l_position, l_color, trigs, rays_sqrt);
         }
@@ -232,6 +227,7 @@ __global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4*
     int offset_x = blockDim.x * gridDim.x;
     int offset_y = blockDim.y * gridDim.y;
 
+    // из примера с лекций
     double dw = 2.0 / (w - 1.0);
     double dh = 2.0 / (h - 1.0);
     double z = 1.0 / tan(angle * M_PI / 360.0);
@@ -241,48 +237,17 @@ __global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4*
     for (int i = id_x; i < w; i += offset_x)
         for (int j = id_y; j < h; j += offset_y) {
             vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
-//            v.x = -1.0 + dw * i;
-//            v.y = (-1.0 + dh * j) * h / w;
-//            v.z = z;
             vec3 dir = mult(b_x, b_y, b_z, v);
             data[(h - 1 - j) * w + i] = ray(pc, normalize(dir), l_position, l_color, trigs, rays_sqrt);
         }
 }
 
-void create_hexahedron(std::vector<triangle>& trigs, const double& radius, const vec3& c_coords, const vec3& colors) { // ++++++
-    std::vector <vec3> points {{-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
-                               {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
-                               {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
-                               {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
-                               {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
-                               {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
-                               {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
-                               {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)}};
 
-    for (int i = 0; i < points.size(); i++) {
-        points[i].x *= radius;
-        points[i].x += c_coords.x;
-
-        points[i].y *= radius;
-        points[i].y += c_coords.y;
-
-        points[i].z *= radius;
-        points[i].z += c_coords.z;
-    }
-
-    trigs.push_back({points[0], points[1], points[3], colors});
-    trigs.push_back({points[0], points[2], points[3], colors});
-    trigs.push_back({points[1], points[5], points[7], colors});
-    trigs.push_back({points[1], points[3], points[7], colors});
-    trigs.push_back({points[4], points[5], points[7], colors});
-    trigs.push_back({points[4], points[6], points[7], colors});
-    trigs.push_back({points[0], points[4], points[6], colors});
-    trigs.push_back({points[0], points[2], points[6], colors});
-    trigs.push_back({points[0], points[1], points[5], colors});
-    trigs.push_back({points[0], points[4], points[5], colors});
-    trigs.push_back({points[2], points[3], points[7], colors});
-    trigs.push_back({points[2], points[6], points[7], colors});
+void create_scene(vec3 first_point, vec3 second_point, vec3 third_point, vec3 fourth_point, vec3 color, std::vector <triangle> &trigs) {
+    trigs.push_back(triangle{third_point, fourth_point, first_point, color});
+    trigs.push_back(triangle{first_point, second_point, third_point, color});
 }
+
 
 void create_icosahedron(std::vector<triangle> &trigs, const double& radius, const vec3& c_coords, const vec3& colors) {
     double atrtan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
@@ -336,6 +301,8 @@ void create_icosahedron(std::vector<triangle> &trigs, const double& radius, cons
     trigs.push_back({points[11], points[10], points[9], colors});
     trigs.push_back({points[11], points[6], points[10], colors});
 }
+
+
 
 void create_dodecahedron(std::vector<triangle>& trigs, const double& radius, const vec3& c_coords, const vec3& colors) { // +++++++
     std::vector<vec3> points {{-(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
@@ -417,57 +384,77 @@ void create_dodecahedron(std::vector<triangle>& trigs, const double& radius, con
     trigs.push_back({points[13], points[14], points[18], colors});
     trigs.push_back({points[19], points[13], points[18], colors});
     trigs.push_back({points[19], points[17], points[13], colors});
-
-    // std::cout << "Creating create_dodecahedron done\n";
 }
 
-void scene(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color,
-           std::vector <triangle> &trigs) {
-    trigs.push_back(triangle{a, b, c, color});
-    trigs.push_back(triangle{c, d, a, color});
+
+
+void create_hexahedron(std::vector<triangle>& trigs, const double& radius, const vec3& c_coords, const vec3& colors) { // ++++++
+    std::vector <vec3> points {{-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                               {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                               {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                               {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
+                               {1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
+                               {1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
+                               {1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
+                               {1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)}};
+
+    for (int i = 0; i < points.size(); i++) {
+        points[i].x *= radius;
+        points[i].x += c_coords.x;
+
+        points[i].y *= radius;
+        points[i].y += c_coords.y;
+
+        points[i].z *= radius;
+        points[i].z += c_coords.z;
+    }
+
+    trigs.push_back({points[0], points[1], points[3], colors});
+    trigs.push_back({points[0], points[2], points[3], colors});
+    trigs.push_back({points[1], points[5], points[7], colors});
+    trigs.push_back({points[1], points[3], points[7], colors});
+    trigs.push_back({points[4], points[5], points[7], colors});
+    trigs.push_back({points[4], points[6], points[7], colors});
+    trigs.push_back({points[0], points[4], points[6], colors});
+    trigs.push_back({points[0], points[2], points[6], colors});
+    trigs.push_back({points[0], points[1], points[5], colors});
+    trigs.push_back({points[0], points[4], points[5], colors});
+    trigs.push_back({points[2], points[3], points[7], colors});
+    trigs.push_back({points[2], points[6], points[7], colors});
 }
 
-int cpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4 *pixels,
-             uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int n, int ssaa_multiplier) {
-    cpu_render(p_c, p_v, ssaa_w, ssaa_h, fov, pixels_ssaa, light_pos, light_col, trigs, n);
-    ssaa_cpu(pixels, w, h, ssaa_multiplier, pixels_ssaa);
-
-    return 0;
+void cpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt, int k) {
+    cpu_render(p_c, p_v, s_w, s_h, angle, s_data, l_position, l_color, trigs, rays_sqrt);
+    ssaa_cpu(data, w, h, k, s_data);
 }
 
-int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4 *pixels,
-             uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int rays_sqrt, int ssaa_multiplier) {
-//    cerr << "Allocate pixels\n";
-    // Allocating on gpu
-    uchar4 *gpu_pixels;
-    CSC(cudaMalloc((uchar4 * *)(&gpu_pixels), w * h * sizeof(uchar4)));
-    CSC(cudaMemcpy(gpu_pixels, pixels, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
-//    cerr << "Allocate ssaa pixels\n";
-    uchar4 *gpu_pixels_ssaa;
-    CSC(cudaMalloc((uchar4 * *)(&gpu_pixels_ssaa), ssaa_w * ssaa_h * sizeof(uchar4)));
-    CSC(cudaMemcpy(gpu_pixels_ssaa, pixels_ssaa, ssaa_w * ssaa_h * sizeof(uchar4), cudaMemcpyHostToDevice));
-//    cerr << "Allocate trigs\n";
+void gpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt, int k) {
+    uchar4 *gpu_data;
+    uchar4 *gpu_s_data;
     triangle *gpu_trigs;
-    CSC(cudaMalloc((triangle **) (&gpu_trigs), rays_sqrt * sizeof(triangle)));
-    CSC(cudaMemcpy(gpu_trigs, trigs, rays_sqrt * sizeof(triangle), cudaMemcpyHostToDevice));
-//    cerr << "Start render\n";
-    // Rendering
-    gpu_render <<< 128, 128 >>>(p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_trigs, rays_sqrt);
-    cudaThreadSynchronize();
-    CSC(cudaGetLastError());
-//    cerr << "Start ssaa\n";
-    // Ssaa smoothing algo
-    ssaa_gpu <<< 128, 128 >>>(gpu_pixels, w, h, ssaa_multiplier, gpu_pixels_ssaa);
-    cudaThreadSynchronize();
-    CSC(cudaGetLastError());
-    CSC(cudaMemcpy(pixels, gpu_pixels, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
 
-    // Free memory
-    CSC(cudaFree(gpu_pixels));
-    CSC(cudaFree(gpu_pixels_ssaa));
+    CSC(cudaMalloc((uchar4**)(&gpu_data), sizeof(uchar4) * w * h ));
+    CSC(cudaMemcpy(gpu_data, data, sizeof(uchar4) * w * h, cudaMemcpyHostToDevice));
+
+    CSC(cudaMalloc((uchar4**)(&gpu_s_data), sizeof(uchar4) * s_w * s_h));
+    CSC(cudaMemcpy(gpu_s_data, s_data, sizeof(uchar4) * s_w * s_h, cudaMemcpyHostToDevice));
+
+    CSC(cudaMalloc((triangle**) (&gpu_trigs), sizeof(triangle) * rays_sqrt));
+    CSC(cudaMemcpy(gpu_trigs, trigs, sizeof(triangle) * rays_sqrt, cudaMemcpyHostToDevice));
+
+    gpu_render <<< 128, 128 >>>(p_c, p_v, s_w, s_h, angle, gpu_s_data, l_position, l_color, gpu_trigs, rays_sqrt);
+
+    cudaThreadSynchronize();
+    CSC(cudaGetLastError());
+
+    ssaa_gpu <<< 128, 128 >>>(gpu_data, w, h, k, gpu_s_data);
+
+    cudaThreadSynchronize();
+    CSC(cudaGetLastError());
+    CSC(cudaMemcpy(data, gpu_data, w * h * sizeof(uchar4), cudaMemcpyDeviceToHost));
+    CSC(cudaFree(gpu_data));
     CSC(cudaFree(gpu_trigs));
-
-    return 0;
+    CSC(cudaFree(gpu_s_data));
 }
 
 int main(int argc, char *argv[]) {
@@ -500,7 +487,7 @@ int main(int argc, char *argv[]) {
     std::cin >> path_to_frames;
     int w;
     int h;
-    int view_angle;
+    double view_angle;
     std::cin >> w >> h >> view_angle;
 
     double r0c;
@@ -569,22 +556,21 @@ int main(int argc, char *argv[]) {
     col_values.x *= 255.0;
     col_values.y *= 255.0;
     col_values.z *= 255.0;
-    scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, trigs);
+    create_scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, trigs);
 
-    int n_lights;
-    vec3 light_pos;
-    vec3 light_col;
-    std::cin >> n_lights;
-    std::cin >> light_pos.x >> light_pos.y >> light_pos.z >> light_col.x >> light_col.y >> light_col.z;
+    int l_count;
+    vec3 l_position;
+    vec3 l_color;
+    std::cin >> l_count;
+    std::cin >> l_position.x >> l_position.y >> l_position.z >> l_color.x >> l_color.y >> l_color.z;
 
-    int rec;
+    int recurse_count;
     int rays_sqrt;
-    std::cin >> rec >> rays_sqrt;
+    std::cin >> recurse_count >> rays_sqrt;
 
     int sum_of_rays;
 
-    triangle *trigs_as_array;
-    trigs_as_array = trigs.data();
+    triangle* trigs_arr = trigs.data();
     uchar4 *pixels = new uchar4[w * h * rays_sqrt * rays_sqrt];
     uchar4 *pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
 
@@ -616,14 +602,13 @@ int main(int argc, char *argv[]) {
 
         sum_of_rays = w * h * rays_sqrt * rays_sqrt;
         int p_size = trigs.size();
-        int ssaa_h = h * rays_sqrt;
+        // int ssaa_h = h * rays_sqrt;
 
-        if (is_gpu)
-            gpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
-                     light_pos, light_col, trigs_as_array, p_size, rays_sqrt);
-        else
-            cpu_mode(p_c, p_v, w, w * rays_sqrt, h, ssaa_h, (double) view_angle, pixels, pixels_ssaa,
-                     light_pos, light_col, trigs_as_array, p_size, rays_sqrt);
+        if (!is_gpu) {
+            cpu_mode(pixels, pixels_ssaa, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, trigs_arr, p_size, rays_sqrt);
+        } else {
+            gpu_mode(pixels, pixels_ssaa, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, trigs_arr, p_size, rays_sqrt);
+        }
 
         auto end = std::chrono::steady_clock::now();
 
