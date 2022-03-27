@@ -170,7 +170,7 @@ void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 *data, vec3
     vec3 by = norm(prod(bx, bz));
     for (i = 0; i < w; i++)
         for (j = 0; j < h; j++) {
-            vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
+            vec3 v = {(double) -1.0 + dw * (double) i, ((double) -1.0 + dh * (double) j) * (double) h / (double) w, z};
             vec3 dir = mult(bx, by, bz, v); // убрать norm
             data[(h - 1 - j) * w + i] = ray(pc, norm(dir), l_position, l_color, trigs, rays_sqrt);
         }
@@ -191,7 +191,7 @@ __global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 
     vec3 by = norm(prod(bx, bz));
     for (int i = id_x; i < w; i += offset_x)
         for (int j = id_y; j < h; j += offset_y) {
-            vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
+            vec3 v = {(double) -1.0 + dw * (double) i, ((double) -1.0 + dh * (double) j) * (double) h / (double) w, z};
             vec3 dir = mult(bx, by, bz, v);
             data[(h - 1 - j) * w + i] = ray(pc, norm(dir), l_position, l_color, trigs, rays_sqrt);
         }
