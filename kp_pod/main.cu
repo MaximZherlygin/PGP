@@ -41,29 +41,6 @@ bool replace(std::string &str, const std::string &from, const std::string &to) {
     return true;
 }
 
-__host__ __device__ vec3 normalize(vec3 hs) {
-    vec3 result;
-    result.x = hs.x / sqrt(hs * hs);
-    result.y = hs.y / sqrt(hs * hs);
-    result.z = hs.z / sqrt(hs * hs);
-    return result;
-}
-
-__host__ __device__ vec3 prod(vec3 lhs, vec3 rhs) {
-    vec3 result;
-    result.x = lhs.y * rhs.z - lhs.z * rhs.y;
-    result.y = lhs.z * rhs.x - lhs.x * rhs.z;
-    result.z = lhs.x * rhs.y - lhs.y * rhs.x;
-    return result;
-}
-
-__host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3 multipy_hs) {
-    vec3 result;
-    result.x = first_hs.x * multipy_hs.x + second_hs.x * multipy_hs.y + third_hs.x * multipy_hs.z;
-    result.y = first_hs.y * multipy_hs.x + second_hs.y * multipy_hs.y + third_hs.y * multipy_hs.z;
-    result.z = first_hs.z * multipy_hs.x + second_hs.z * multipy_hs.y + third_hs.z * multipy_hs.z;
-    return result;
-}
 
 
 __host__ __device__ vec3 operator+(vec3 lhs, vec3 rhs) {
@@ -95,24 +72,30 @@ __host__ __device__ vec3 operator*(vec3 lhs, double rhs) {
     return result;
 }
 
-void ssaa_cpu(uchar4 *data, uchar4 *out_data, int w, int h, int k) {
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int4 mid = {0, 0, 0, 0};
-
-            for (int j = 0; j < k; j++) {
-                for (int i = 0; i < k; i++) {
-                    int index = k * k * y * w + k * j * w + k * x + i;
-                    mid.x += data[index].x;
-                    mid.y += data[index].y;
-                    mid.z += data[index].z;
-                }
-            }
-            double div = k * k;
-            out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / div, mid.z / div, 0);
-        }
-    }
+__host__ __device__ vec3 normalize(vec3 hs) {
+    vec3 result;
+    result.x = hs.x / sqrt(hs * hs);
+    result.y = hs.y / sqrt(hs * hs);
+    result.z = hs.z / sqrt(hs * hs);
+    return result;
 }
+
+__host__ __device__ vec3 prod(vec3 lhs, vec3 rhs) {
+    vec3 result;
+    result.x = lhs.y * rhs.z - lhs.z * rhs.y;
+    result.y = lhs.z * rhs.x - lhs.x * rhs.z;
+    result.z = lhs.x * rhs.y - lhs.y * rhs.x;
+    return result;
+}
+
+__host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3 multipy_hs) {
+    vec3 result;
+    result.x = first_hs.x * multipy_hs.x + second_hs.x * multipy_hs.y + third_hs.x * multipy_hs.z;
+    result.y = first_hs.y * multipy_hs.x + second_hs.y * multipy_hs.y + third_hs.y * multipy_hs.z;
+    result.z = first_hs.z * multipy_hs.x + second_hs.z * multipy_hs.y + third_hs.z * multipy_hs.z;
+    return result;
+}
+
 
 __global__ void ssaa_gpu(uchar4 *data, uchar4 *out_data, int w, int h, int k) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -132,6 +115,25 @@ __global__ void ssaa_gpu(uchar4 *data, uchar4 *out_data, int w, int h, int k) {
                 }
             }
 
+            double div = k * k;
+            out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / div, mid.z / div, 0);
+        }
+    }
+}
+
+void ssaa_cpu(uchar4 *data, uchar4 *out_data, int w, int h, int k) {
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int4 mid = {0, 0, 0, 0};
+
+            for (int j = 0; j < k; j++) {
+                for (int i = 0; i < k; i++) {
+                    int index = k * k * y * w + k * j * w + k * x + i;
+                    mid.x += data[index].x;
+                    mid.y += data[index].y;
+                    mid.z += data[index].z;
+                }
+            }
             double div = k * k;
             out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / div, mid.z / div, 0);
         }
@@ -206,23 +208,8 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 l_position, vec3 l_color
     return color_min;
 }
 
-void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 *data, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt) {
-    // из примера с лекций
-    double dw = 2.0 / (w - 1.0);
-    double dh = 2.0 / (h - 1.0);
-    double z = 1.0 / tan(angle * M_PI / 360.0);
-    vec3 bz = normalize(pv - pc);
-    vec3 bx = normalize(prod(bz, {0.0, 0.0, 1.0}));
-    vec3 by = normalize(prod(bx, bz));
-    for (int i = 0; i < w; i++)
-        for (int j = 0; j < h; j++) {
-            vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
-            vec3 dir = mult(bx, by, bz, v);
-            data[(h - 1 - j) * w + i] = ray(pc, normalize(dir), l_position, l_color, trigs, rays_sqrt);
-        }
-}
-
-__global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4* data, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt) {
+__global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4* data, vec3 l_position, vec3 l_color,
+                           triangle *trigs, int rays_sqrt) {
     int id_x = blockDim.x * blockIdx.x + threadIdx.x;
     int id_y = blockDim.y * blockIdx.y + threadIdx.y;
     int offset_x = blockDim.x * gridDim.x;
@@ -243,12 +230,28 @@ __global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4*
         }
 }
 
-void cpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs, vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, int rays_sqrt, int k) {
-    cpu_render(p_c, p_v, s_w, s_h, angle, s_data, l_position, l_color, trigs, rays_sqrt);
-    ssaa_cpu(s_data, data, w, h, k);
+void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle,uchar4 *data, vec3 l_position, vec3 l_color,
+                triangle *trigs,int rays_sqrt) {
+    // из примера с лекций
+    double dw = 2.0 / (w - 1.0);
+    double dh = 2.0 / (h - 1.0);
+    double z = 1.0 / tan(angle * M_PI / 360.0);
+    vec3 bz = normalize(pv - pc);
+    vec3 bx = normalize(prod(bz, {0.0, 0.0, 1.0}));
+    vec3 by = normalize(prod(bx, bz));
+    for (int i = 0; i < w; i++)
+        for (int j = 0; j < h; j++) {
+            vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
+            vec3 dir = mult(bx, by, bz, v);
+            data[(h - 1 - j) * w + i] = ray(pc, normalize(dir), l_position, l_color, trigs, rays_sqrt);
+        }
 }
 
-int gpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs, vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, int rays_sqrt, int k) {
+
+int gpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs,
+             vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h,
+             double angle, vec3 l_position, vec3 l_color, int rays_sqrt, int k) {
+
     uchar4 *gpu_data;
     uchar4 *gpu_s_data;
     triangle *gpu_trigs;
@@ -279,6 +282,18 @@ int gpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs, vec3 p_c, vec3 p_v, 
 }
 
 
+void cpu_mode(uchar4 *data, uchar4 *s_data, triangle *trigs,
+              vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h,
+              double angle,vec3 l_position, vec3 l_color, int rays_sqrt, int k) {
+
+    cpu_render(p_c, p_v, s_w, s_h, angle, s_data, l_position, l_color, trigs, rays_sqrt);
+    ssaa_cpu(s_data, data, w, h, k);
+}
+
+
+// Создание сцены и фигур
+
+
 void create_scene(vec3 first_point, vec3 second_point, vec3 third_point, vec3 fourth_point, vec3 color, std::vector <triangle> &trigs) {
     trigs.push_back(triangle{third_point, fourth_point, first_point, color});
     trigs.push_back(triangle{first_point, second_point, third_point, color});
@@ -286,6 +301,8 @@ void create_scene(vec3 first_point, vec3 second_point, vec3 third_point, vec3 fo
 
 
 void create_icosahedron(std::vector<triangle> &trigs, const double& radius, const vec3& c_coords, const vec3& colors) {
+    // основная идея: если расположить икосаэдр под определенным углом, то две вершины будут располагаться
+    // симметрично относительно оси, а остальные вершины будут располагаться на двух окружностях
     double atrtan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
     double angle = M_PI * atrtan_1_2 / 180;
     double segment_angle = M_PI * 72 / 180;
@@ -571,8 +588,6 @@ int main(int argc, char *argv[]) {
     int rays_sqrt;
     std::cin >> recurse_count >> rays_sqrt;
 
-    int sum_of_rays;
-
     triangle* trigs_arr = trigs.data();
     uchar4 *pixels = new uchar4[w * h * rays_sqrt * rays_sqrt];
     uchar4 *pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
@@ -588,24 +603,20 @@ int main(int argc, char *argv[]) {
         double t = i * 2.0 * M_PI / frames_count;
 
         // Movement
-        double r_c = r0c + Arc * sin(omegaRc * t + pRc);
-        double z_c = z0c + Azc * sin(omegaZc * t + pZc);
-        double phi_c = phi0c + omegaPhiC * t;
+        double rc = r0c + Arc * sin(omegaRc * t + pRc);
+        double zc = z0c + Azc * sin(omegaZc * t + pZc);
+        double phiC = phi0c + omegaPhiC * t;
+        double rv = r0v + Arv * sin(omegaRv * t + pRv);
+        double zv = z0v + Azv * sin(omegaZv * t + pZv);
+        double phiV = phi0v + omegaPhiV * t;
+        vec3 p_c = {rc * cos(phiC),
+                    rc * sin(phiC),
+                    zc};
+        vec3 p_v = {rv * cos(phiV),
+                    rv * sin(phiV),
+                    zv};
 
-        double r_v = r0v + Arv * sin(omegaRv * t + pRv);
-        double z_v = z0v + Azv * sin(omegaZv * t + pZv);
-        double phi_v = phi0v + omegaPhiV * t;
-
-        vec3 p_c = {r_c * cos(phi_c),
-                    r_c * sin(phi_c),
-                    z_c};
-        vec3 p_v = {r_v * cos(phi_v),
-                    r_v * sin(phi_v),
-                    z_v};
-
-        sum_of_rays = w * h * rays_sqrt * rays_sqrt;
         int p_size = trigs.size();
-
         if (!is_gpu) {
             cpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, p_size, rays_sqrt);
         } else {
@@ -613,10 +624,9 @@ int main(int argc, char *argv[]) {
         }
 
         auto end = std::chrono::steady_clock::now();
-
         double summ_time = std::chrono::duration_cast<std::chrono::microseconds>(end - time_start).count() / 1000;
         total_duration_time += summ_time;
-        std::cout << i + 1 << "/" << frames_count << "\t" << summ_time << "\t" << sum_of_rays << "\n";
+        std::cout << i + 1 << "/" << frames_count << "\t" << summ_time << "\t" << w * h * rays_sqrt * rays_sqrt << "\n";
 
         std::string iter = std::to_string(i);
         std::string filename = path_to_frames;
