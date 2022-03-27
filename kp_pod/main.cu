@@ -428,19 +428,19 @@ void cpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int
     ssaa_cpu(data, w, h, k, s_data);
 }
 
-void gpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt, int k) {
+int gpu_mode(uchar4 *data, uchar4 *s_data,vec3 p_c, vec3 p_v, int w, int h, int s_w, int s_h, double angle, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt, int k) {
     uchar4 *gpu_data;
     uchar4 *gpu_s_data;
     triangle *gpu_trigs;
 
-    CSC(cudaMalloc((uchar4**)(&gpu_data), sizeof(uchar4) * w * h ));
-    CSC(cudaMemcpy(gpu_data, data, sizeof(uchar4) * w * h, cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((uchar4**)(&gpu_data), w * h * sizeof(uchar4)));
+    CSC(cudaMemcpy(gpu_data, data, w * h * sizeof(uchar4), cudaMemcpyHostToDevice));
 
-    CSC(cudaMalloc((uchar4**)(&gpu_s_data), sizeof(uchar4) * s_w * s_h));
-    CSC(cudaMemcpy(gpu_s_data, s_data, sizeof(uchar4) * s_w * s_h, cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((uchar4**)(&gpu_s_data), s_w * s_h * sizeof(uchar4)));
+    CSC(cudaMemcpy(gpu_s_data, s_data, s_w * s_h * sizeof(uchar4), cudaMemcpyHostToDevice));
 
-    CSC(cudaMalloc((triangle**) (&gpu_trigs), sizeof(triangle) * rays_sqrt));
-    CSC(cudaMemcpy(gpu_trigs, trigs, sizeof(triangle) * rays_sqrt, cudaMemcpyHostToDevice));
+    CSC(cudaMalloc((triangle**) (&gpu_trigs), rays_sqrt * sizeof(triangle)));
+    CSC(cudaMemcpy(gpu_trigs, trigs, rays_sqrt * sizeof(triangle), cudaMemcpyHostToDevice));
 
     gpu_render <<< 128, 128 >>>(p_c, p_v, s_w, s_h, angle, gpu_s_data, l_position, l_color, gpu_trigs, rays_sqrt);
 
