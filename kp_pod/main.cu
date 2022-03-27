@@ -142,7 +142,7 @@ __global__ void ssaa_gpu(uchar4 *out_data, int w, int h, int k, uchar4 *data) {
 //            out_data[y * w + x].y = (unsigned char) (int) (mid.y / (k * k));
 //            out_data[y * w + x].z = (unsigned char) (int) (mid.z / (k * k));
 //            out_data[y * w + x].w = 0;
-            out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / d, mid.z / d, 0);
+            out_data[x + y * w] = make_uchar4(mid.x / div, mid.y / div, mid.z / div, 0);
         }
     }
 }
