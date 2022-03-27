@@ -42,28 +42,29 @@ bool replace(std::string &str, const std::string &from, const std::string &to) {
 }
 
 
-__host__ __device__  vec3 operator+(vec3 v1, vec3 v2) {
+__host__ __device__ vec3 operator+(vec3 v1, vec3 v2) {
     return vec3{v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
 }
 
-__host__ __device__  vec3 operator-(vec3 v1, vec3 v2) {
+__host__ __device__ vec3 operator-(vec3 v1, vec3 v2) {
     return vec3{v1.x - v2.x,
                 v1.y - v2.y,
                 v1.z - v2.z};
 }
 
-__host__ __device__  vec3 operator*(vec3 v, double num) {
+__host__ __device__ vec3 operator*(vec3 v, double num) {
     return vec3{v.x * num,
                 v.y * num,
                 v.z * num};
 }
 
-__host__ __device__  double scal_mul(vec3 v1, vec3 v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+__host__ __device__ double operator*(vec3 lhs, vec3 rhs) {
+    double result = ((lhs.x * rhs.x) + (lhs.y * rhs.y) + (lhs.z * rhs.z));
+    return result;
 }
 
 __host__ __device__  double len(vec3 v) {
-    return sqrt(scal_mul(v, v));
+    return sqrt(v * v);
 }
 
 __host__ __device__  vec3 norm(vec3 v) {
@@ -97,22 +98,22 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
         vec3 e1 = trigs[i].p2 - trigs[i].p1;
         vec3 e2 = trigs[i].p3 - trigs[i].p1;
         vec3 p = crossing(dir, e2);
-        double div = scal_mul(p, e1);
+        double div = p * e1;
 
         if (fabs(div) < 1e-10)
             continue;
 
         vec3 t = pos - trigs[i].p1;
-        double u = scal_mul(p, t) / div;
+        double u = (p * t) / div;
         if (u < 0.0 || u > 1.0)
             continue;
 
         vec3 q = crossing(t, e1);
-        double v = scal_mul(q, dir) / div;
+        double v = (q * dir) / div;
         if (v < 0.0 || v + u > 1.0)
             continue;
 
-        double ts = scal_mul(q, e2) / div;
+        double ts = (q * e2) / div;
         if (ts < 0.0)
             continue;
 
@@ -134,24 +135,24 @@ __host__ __device__ uchar4 ray_aux(vec3 pos, vec3 dir, vec3 light_pos,
         vec3 e1 = trigs[i].p2 - trigs[i].p1;
         vec3 e2 = trigs[i].p3 - trigs[i].p1;
         vec3 p = crossing(dir, e2);
-        double div = scal_mul(p, e1);
+        double div = p * e1;
 
         if (fabs(div) < 1e-10)
             continue;
 
         vec3 t = pos - trigs[i].p1;
-        double u = scal_mul(p, t) / div;
+        double u = (p * t) / div;
 
         if (u < 0.0 || u > 1.0)
             continue;
 
         vec3 q = crossing(t, e1);
-        double v = scal_mul(q, dir) / div;
+        double v = (q * dir) / div;
 
         if (v < 0.0 || v + u > 1.0)
             continue;
 
-        double ts = scal_mul(q, e2) / div;
+        double ts = (q * e2) / div;
 
         if (ts > 0.0 && ts < length && i != min_value) {
             return {0, 0, 0, 0};
@@ -226,9 +227,9 @@ void ssaa_cpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_pixels) {
                     mid_pixel.w += 0;
                 }
             }
-            pixels[y * w + x].x = (uchar) (int) (mid_pixel.x / (coeff * coeff));
-            pixels[y * w + x].y = (uchar) (int) (mid_pixel.y / (coeff * coeff));
-            pixels[y * w + x].z = (uchar) (int) (mid_pixel.z / (coeff * coeff));
+            pixels[y * w + x].x = (unsigned char) (int) (mid_pixel.x / (coeff * coeff));
+            pixels[y * w + x].y = (unsigned char) (int) (mid_pixel.y / (coeff * coeff));
+            pixels[y * w + x].z = (unsigned char) (int) (mid_pixel.z / (coeff * coeff));
             pixels[y * w + x].w = 0;
         }
     }
@@ -252,16 +253,15 @@ __global__ void ssaa_gpu(uchar4 *pixels, int w, int h, int coeff, uchar4 *ssaa_p
                     mid.w += 0;
                 }
             }
-            pixels[y * w + x].x = (uchar) (mid.x / (coeff * coeff));
-            pixels[y * w + x].y = (uchar) (mid.y / (coeff * coeff));
-            pixels[y * w + x].z = (uchar) (mid.z / (coeff * coeff));
+            pixels[y * w + x].x = (unsigned char) (mid.x / (coeff * coeff));
+            pixels[y * w + x].y = (unsigned char) (mid.y / (coeff * coeff));
+            pixels[y * w + x].z = (unsigned char) (mid.z / (coeff * coeff));
             pixels[y * w + x].w = 0;
         }
     }
 }
 
-void hexahedron(const vec3 c_coords, const double radius, const vec3 colors, std::vector<triangle>& trigs) { // ++++++
-
+void create_hexahedron(std::vector<triangle>& trigs, const double& radius, const vec3& c_coords, const vec3& colors) { // ++++++
     std::vector <vec3> points {{-1 / sqrt(3), -1 / sqrt(3), -1 / sqrt(3)},
                                {-1 / sqrt(3), -1 / sqrt(3), 1 / sqrt(3)},
                                {-1 / sqrt(3), 1 / sqrt(3), -1 / sqrt(3)},
@@ -296,7 +296,7 @@ void hexahedron(const vec3 c_coords, const double radius, const vec3 colors, std
     trigs.push_back({points[2], points[6], points[7], colors});
 }
 
-void icosahedron(vec3 c_coords, double radius, const vec3 colors, std::vector<triangle> &trigs) {
+void create_icosahedron(std::vector<triangle> &trigs, const double& radius, const vec3& c_coords, const vec3& colors) {
     double atrtan_1_2 = 26.565; // arctan(1/2) ~ +-26.57
     double angle = M_PI * atrtan_1_2 / 180;
     double segment_angle = M_PI * 72 / 180;
@@ -349,7 +349,7 @@ void icosahedron(vec3 c_coords, double radius, const vec3 colors, std::vector<tr
     trigs.push_back({points[11], points[6], points[10], colors});
 }
 
-void dodecahedron(const vec3 c_coords, const double radius, const vec3 colors, std::vector<triangle>& trigs) { // +++++++
+void create_dodecahedron(std::vector<triangle>& trigs, const double& radius, const vec3& c_coords, const vec3& colors) { // +++++++
     std::vector<vec3> points {{-(2 / (1 + sqrt(5))) / sqrt(3), 0, ((1 + sqrt(5)) / 2) / sqrt(3)},
                               {(2 / (1 + sqrt(5))) / sqrt(3),  0, ((1 + sqrt(5)) / 2) / sqrt(3)},
                               {-1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3)},
@@ -430,7 +430,7 @@ void dodecahedron(const vec3 c_coords, const double radius, const vec3 colors, s
     trigs.push_back({points[19], points[13], points[18], colors});
     trigs.push_back({points[19], points[17], points[13], colors});
 
-    // std::cout << "Creating dodecahedron done\n";
+    // std::cout << "Creating create_dodecahedron done\n";
 }
 
 void scene(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color,
@@ -508,7 +508,6 @@ int main(int argc, char *argv[]) {
 
     std::string temp;
 
-    // Frames
     int frames_count;
     std::cin >> frames_count;
     std::string path_to_frames;
@@ -518,7 +517,6 @@ int main(int argc, char *argv[]) {
     int view_angle;
     std::cin >> w >> h >> view_angle;
 
-    // Camera trajectory
     double r0c;
     double z0c;
     double phi0c;
@@ -549,8 +547,6 @@ int main(int argc, char *argv[]) {
     double pZv;
     std::cin >> pRv >> pZv;
 
-
-    // Figures params with creating
     vec3 c_verticles;
     vec3 col_values;
     double radius;
@@ -560,19 +556,19 @@ int main(int argc, char *argv[]) {
     col_values.x *= 255.0;
     col_values.y *= 255.0;
     col_values.z *= 255.0;
-    hexahedron(c_verticles, radius, col_values, trigs);
+    create_hexahedron(trigs, radius, c_verticles, col_values);
     std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
              >> radius >> temp >> temp >> temp;
     col_values.x *= 255.0;
     col_values.y *= 255.0;
     col_values.z *= 255.0;
-    icosahedron(c_verticles, radius, col_values, trigs);
+    create_icosahedron(trigs, radius, c_verticles, col_values);
     std::cin >> c_verticles.x >> c_verticles.y >> c_verticles.z >> col_values.x >> col_values.y >> col_values.z
              >> radius >> temp >> temp >> temp;
     col_values.x *= 255.0;
     col_values.y *= 255.0;
     col_values.z *= 255.0;
-    dodecahedron(c_verticles, radius, col_values, trigs);
+    create_dodecahedron(trigs, radius, c_verticles, col_values);
 
     // Scene
     vec3 floor_first_point;
@@ -586,14 +582,13 @@ int main(int argc, char *argv[]) {
     std::cin >> temp >> col_values.x >> col_values.y >> col_values.z >> temp;
     scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, trigs);
 
-    // Lights
     int n_lights;
     vec3 light_pos;
     vec3 light_col;
     std::cin >> n_lights;
     std::cin >> light_pos.x >> light_pos.y >> light_pos.z >> light_col.x >> light_col.y >> light_col.z;
 
-    int rec; // Should be 1 (unused)
+    int rec;
     int rays_sqrt;
     std::cin >> rec >> rays_sqrt;
 
@@ -629,8 +624,7 @@ int main(int argc, char *argv[]) {
         vec3 p_v = {r_v * cos(phi_v),
                     r_v * sin(phi_v),
                     z_v};
-
-        // Total sum of rays (will be the same coz of recursion)
+        
         sum_of_rays = w * h * rays_sqrt * rays_sqrt;
         int p_size = trigs.size();
         int ssaa_h = h * rays_sqrt;
