@@ -70,7 +70,7 @@ __host__ __device__ vec3 operator*(vec3 lhs, double rhs) {
     return result;
 }
 
-__host__ __device__ vec3 normalize(vec3 hs) {
+__host__ __device__ vec3 norm(vec3 hs) {
     vec3 result;
     result.x = hs.x / sqrt(hs * hs);
     result.y = hs.y / sqrt(hs * hs);
@@ -94,8 +94,7 @@ __host__ __device__ vec3 mult(vec3 first_hs, vec3 second_hs, vec3 third_hs, vec3
     return result;
 }
 
-__host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
-                                   vec3 light_color, triangle *trigs, int rays_sqrt) {
+__host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 l_posision, vec3 l_color, triangle *trigs, int rays_sqrt) {
     int k_min = -1;
     double ts_min;
     for (int k = 0; k < rays_sqrt; k++) {
@@ -125,8 +124,8 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
         return {0, 0, 0, 0};
 
     pos = dir * ts_min + pos;
-    dir = light_pos - pos;
-    dir = normalize(dir);
+    dir = l_posision - pos;
+    dir = norm(dir);
 
     double size = sqrt(dir * dir);
 
@@ -152,54 +151,49 @@ __host__ __device__ uchar4 ray(vec3 pos, vec3 dir, vec3 light_pos,
     }
 
     uchar4 out_color;
-    out_color.x = trigs[k_min].color.x * light_color.x;
-    out_color.y = trigs[k_min].color.y * light_color.y;
-    out_color.z = trigs[k_min].color.z * light_color.z;
+    out_color.x = trigs[k_min].color.x * l_color.x;
+    out_color.y = trigs[k_min].color.y * l_color.y;
+    out_color.z = trigs[k_min].color.z * l_color.z;
     out_color.w = 0;
 
     return out_color;
 }
 
-void render_cpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels, vec3 light_pos,
-                vec3 light_col, triangle *trigs, int rays_sqrt) {
-    double dw = (double) 2.0 / (double) (w - 1.0);
-    double dh = (double) 2.0 / (double) (h - 1.0);
-    double z = 1.0 / tan(fov * M_PI / 360.0);
-    vec3 b_z = normalize(p_v - p_c);
-    vec3 b_x = normalize(prod(b_z, {0.0, 0.0, 1.0}));
-    vec3 b_y = normalize(prod(b_x, b_z));
-    for (int i = 0; i < w; i++)
-        for (int j = 0; j < h; j++) {
-            vec3 v;
-            v.x = (double) -1.0 + dw * (double) i;
-            v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
-            v.z = z;
-            vec3 dir = mult(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), light_pos, light_col, trigs, rays_sqrt);
+void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 *data, vec3 l_position, vec3 l_color, triangle *trigs, int rays_sqrt) {
+    int i;
+    int j;
+    double dw = 2.0 / (w - 1);
+    double dh = 2.0 / (h - 1);
+    double z = 1.0 / tan(angle * M_PI / 360.0);
+    vec3 bz = norm(pv - pc);
+    vec3 bx = norm(prod(bz, {0.0, 0.0, 1.0}));
+    vec3 by = norm(prod(bx, bz));
+    for (i = 0; i < w; i++)
+        for (j = 0; j < h; j++) {
+            vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
+            vec3 dir = norm(mult(bx, by, bz, v)); // убрать norm
+            data[(h - 1 - j) * w + i] = ray(pc, norm(dir), l_position, l_color, trigs, rays_sqrt);
         }
 }
 
-__global__ void render_gpu(vec3 p_c, vec3 p_v, int w, int h, double fov, uchar4 *pixels,
-                           vec3 light_pos, vec3 light_col, triangle *trigs, int rays_sqrt) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    int idy = blockDim.y * blockIdx.y + threadIdx.y;
-    int offsetX = blockDim.x * gridDim.x;
-    int offsetY = blockDim.y * gridDim.y;
+__global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 *data,
+                           vec3 l_position, vec3 l_color, triangle* trigs, int rays_sqrt) {
+    int id_x = blockDim.x * blockIdx.x + threadIdx.x;
+    int id_y = blockDim.y * blockIdx.y + threadIdx.y;
+    int offset_x = blockDim.x * gridDim.x;
+    int offset_y = blockDim.y * gridDim.y;
 
-    double dw = (double) 2.0 / (double) (w - 1.0);
-    double dh = (double) 2.0 / (double) (h - 1.0);
-    double z = 1.0 / tan(fov * M_PI / 360.0);
-    vec3 b_z = normalize(p_v - p_c);
-    vec3 b_x = normalize(prod(b_z, {0.0, 0.0, 1.0}));
-    vec3 b_y = normalize(prod(b_x, b_z));
-    for (int i = idx; i < w; i += offsetX)
-        for (int j = idy; j < h; j += offsetY) {
-            vec3 v;
-            v.x = (double) -1.0 + dw * (double) i;
-            v.y = ((double) -1.0 + dh * (double) j) * (double) h / (double) w;
-            v.z = z;
-            vec3 dir = mult(b_x, b_y, b_z, v);
-            pixels[(h - 1 - j) * w + i] = ray(p_c, normalize(dir), light_pos, light_col, trigs, rays_sqrt);
+    double dw = 2.0 / (w - 1);
+    double dh = 2.0 / (h - 1);
+    double z = 1.0 / tan(angle * M_PI / 360.0);
+    vec3 bz = norm(pv - pc);
+    vec3 bx = norm(prod(bz, {0.0, 0.0, 1.0}));
+    vec3 by = norm(prod(bx, bz));
+    for (int i = id_x; i < w; i += offset_x)
+        for (int j = id_y; j < h; j += offset_y) {
+            vec3 v = {-1.0 + dw * i, (-1.0 + dh * j) * h / w, z};
+            vec3 dir = norm(mult(bx, by, bz, v));
+            data[(h - 1 - j) * w + i] = ray(pc, norm(dir), l_position, l_color, trigs, rays_sqrt);
         }
 }
 
@@ -430,7 +424,7 @@ void scene(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color,
 
 int cpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fov, uchar4 *pixels,
              uchar4 *pixels_ssaa, vec3 light_pos, vec3 light_col, triangle *trigs, int n, int ssaa_multiplier) {
-    render_cpu(p_c, p_v, ssaa_w, ssaa_h, fov, pixels_ssaa, light_pos, light_col, trigs, n);
+    cpu_render(p_c, p_v, ssaa_w, ssaa_h, fov, pixels_ssaa, light_pos, light_col, trigs, n);
     ssaa_cpu(pixels, w, h, ssaa_multiplier, pixels_ssaa);
 
     return 0;
@@ -453,7 +447,7 @@ int gpu_mode(vec3 p_c, vec3 p_v, int w, int ssaa_w, int h, int ssaa_h, double fo
     CSC(cudaMemcpy(gpu_trigs, trigs, rays_sqrt * sizeof(triangle), cudaMemcpyHostToDevice));
 //    cerr << "Start render\n";
     // Rendering
-    render_gpu <<< 128, 128 >>>(p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_trigs, rays_sqrt);
+    gpu_render <<< 128, 128 >>>(p_c, p_v, ssaa_w, ssaa_h, fov, gpu_pixels_ssaa, light_pos, light_col, gpu_trigs, rays_sqrt);
     cudaThreadSynchronize();
     CSC(cudaGetLastError());
 //    cerr << "Start ssaa\n";
