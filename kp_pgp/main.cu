@@ -552,9 +552,7 @@ int main(int argc, char *argv[]) {
         std::cin >> omegaRv >> omegaZv >> omegaPhiV;
         std::cin >> pRv >> pZv;
     }
-    std::cout << 'test1' << std::endl;
     MPI_Bcast(&frames_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    std::cout << 'test2' << std::endl;
     char arr_filename[256];
     strcpy(arr_filename, path_to_frames.c_str());
     MPI_Bcast(&arr_filename, 256, MPI_CHAR, 0, MPI_COMM_WORLD);
