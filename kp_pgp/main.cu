@@ -6,6 +6,8 @@
 #include <chrono>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "omp.h"
+#include "mpi.h"
 
 #define _USE_MATH_DEFINES // for C++
 
