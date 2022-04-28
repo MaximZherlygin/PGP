@@ -539,6 +539,37 @@ int main(int argc, char *argv[]) {
     double pRv;
     double pZv;
 
+    // vec3 c_verticles;
+    // vec3 col_values;
+    // double radius;
+    vec3 h_verticles;
+    vec3 h_col_values;
+    double h_radius;
+
+    vec3 i_verticles;
+    vec3 i_col_values;
+    double i_radius;
+
+    vec3 d_verticles;
+    vec3 d_col_values;
+    double d_radius;
+
+    vec3 floor_first_point;
+    vec3 floor_second_point;
+    vec3 floor_third_point;
+    vec3 floor_fourth_point;
+    vec3 floor_col_values;
+
+    std::string temp;
+    std::vector <triangle> trigs;
+
+    int l_count;
+    vec3 l_position;
+    vec3 l_color;
+    int recurse_count;
+    int rays_sqrt;
+
+
     if (id == 0) {
         std::cin >> frames_count;
         std::cin >> path_to_frames;
@@ -551,7 +582,57 @@ int main(int argc, char *argv[]) {
         std::cin >> Arv >> Azv;
         std::cin >> omegaRv >> omegaZv >> omegaPhiV;
         std::cin >> pRv >> pZv;
+
+        std::cin >> h_verticles.x >> h_verticles.y >> h_verticles.z >> h_col_values.x >> h_col_values.y >> h_col_values.z >> h_radius;
+        std::cin >> temp >> temp >> temp;
+        h_col_values.x *= 255.0;
+        h_col_values.y *= 255.0;
+        h_col_values.z *= 255.0;
+
+        std::cin >> i_verticles.x >> i_verticles.y >> i_verticles.z >> i_col_values.x >> i_col_values.y >> i_col_values.z >> i_radius;
+        std::cin >> temp >> temp >> temp;
+        i_col_values.x *= 255.0;
+        i_col_values.y *= 255.0;
+        i_col_values.z *= 255.0;
+
+        std::cin >> d_verticles.x >> d_verticles.y >> d_verticles.z >> d_col_values.x >> d_col_values.y >> d_col_values.z >> d_radius;
+        std::cin >> temp >> temp >> temp;
+        d_col_values.x *= 255.0;
+        d_col_values.y *= 255.0;
+        d_col_values.z *= 255.0;
+
+        std::cin >> floor_first_point.x >> floor_first_point.y >> floor_first_point.z;
+        std::cin >> floor_second_point.x >> floor_second_point.y >> floor_second_point.z;
+        std::cin >> floor_third_point.x >> floor_third_point.y >> floor_third_point.z;
+        std::cin >> floor_fourth_point.x >> floor_fourth_point.y >> floor_fourth_point.z;
+        std::cin >> temp;
+        std::cin >> floor_col_values.x >> floor_col_values.y >> floor_col_values.z;
+        std::cin >> temp;
+        floor_col_values.x *= 255.0;
+        floor_col_values.y *= 255.0;
+        floor_col_values.z *= 255.0;
+
+        std::cin >> l_count;
+        std::cin >> l_position.x >> l_position.y >> l_position.z >> l_color.x >> l_color.y >> l_color.z;
+        std::cin >> recurse_count >> rays_sqrt;
     }
+
+    MPI_Bcast(&floor_first_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_first_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_first_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_second_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_second_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_second_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_third_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_third_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_third_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_fourth_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_fourth_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_fourth_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_col_values.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_col_values.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_col_values.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
     MPI_Bcast(&frames_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
     char arr_filename[256];
     strcpy(arr_filename, path_to_frames.c_str());
@@ -580,45 +661,6 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&pRv, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&pZv, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    // vec3 c_verticles;
-    // vec3 col_values;
-    // double radius;
-    vec3 h_verticles;
-    vec3 h_col_values;
-    double h_radius;
-
-    vec3 i_verticles;
-    vec3 i_col_values;
-    double i_radius;
-
-    vec3 d_verticles;
-    vec3 d_col_values;
-    double d_radius;
-
-
-    std::string temp;
-    std::vector <triangle> trigs;
-
-    if (id == 0) {
-        std::cin >> h_verticles.x >> h_verticles.y >> h_verticles.z >> h_col_values.x >> h_col_values.y >> h_col_values.z >> h_radius;
-        std::cin >> temp >> temp >> temp;
-        h_col_values.x *= 255.0;
-        h_col_values.y *= 255.0;
-        h_col_values.z *= 255.0;
-
-        std::cin >> i_verticles.x >> i_verticles.y >> i_verticles.z >> i_col_values.x >> i_col_values.y >> i_col_values.z >> i_radius;
-        std::cin >> temp >> temp >> temp;
-        i_col_values.x *= 255.0;
-        i_col_values.y *= 255.0;
-        i_col_values.z *= 255.0;
-
-        std::cin >> d_verticles.x >> d_verticles.y >> d_verticles.z >> d_col_values.x >> d_col_values.y >> d_col_values.z >> d_radius;
-        std::cin >> temp >> temp >> temp;
-        d_col_values.x *= 255.0;
-        d_col_values.y *= 255.0;
-        d_col_values.z *= 255.0;
-    }
-
     MPI_Bcast(&h_verticles.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&h_verticles.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&h_verticles.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -642,52 +684,6 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&d_col_values.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&d_col_values.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&d_radius, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    vec3 floor_first_point;
-    vec3 floor_second_point;
-    vec3 floor_third_point;
-    vec3 floor_fourth_point;
-    vec3 floor_col_values;
-    if (id == 0) {
-        std::cin >> floor_first_point.x >> floor_first_point.y >> floor_first_point.z;
-        std::cin >> floor_second_point.x >> floor_second_point.y >> floor_second_point.z;
-        std::cin >> floor_third_point.x >> floor_third_point.y >> floor_third_point.z;
-        std::cin >> floor_fourth_point.x >> floor_fourth_point.y >> floor_fourth_point.z;
-        std::cin >> temp;
-        std::cin >> floor_col_values.x >> floor_col_values.y >> floor_col_values.z;
-        std::cin >> temp;
-        floor_col_values.x *= 255.0;
-        floor_col_values.y *= 255.0;
-        floor_col_values.z *= 255.0;
-    }
-
-    MPI_Bcast(&floor_first_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_first_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_first_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_second_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_second_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_second_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_third_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_third_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_third_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_fourth_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_fourth_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_fourth_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_col_values.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_col_values.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&floor_col_values.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    int l_count;
-    vec3 l_position;
-    vec3 l_color;
-    int recurse_count;
-    int rays_sqrt;
-
-    if (id == 0) {
-        std::cin >> l_count;
-        std::cin >> l_position.x >> l_position.y >> l_position.z >> l_color.x >> l_color.y >> l_color.z;
-        std::cin >> recurse_count >> rays_sqrt;
-    }
 
     MPI_Bcast(&l_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&l_position.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
