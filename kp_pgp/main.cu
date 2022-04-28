@@ -504,9 +504,7 @@ int main(int argc, char *argv[]) {
 
     bool is_gpu = argc == 1 || arg == "--gpu";
 
-    char proc_name[MPI_MAX_PROCESSOR_NAME];
     int numproc;
-    int proc_name_len;
     int id;
 
     int frames_count;
@@ -648,18 +646,18 @@ int main(int argc, char *argv[]) {
     vec3 floor_second_point;
     vec3 floor_third_point;
     vec3 floor_fourth_point;
-    vec3 scene_col_values;
+    vec3 floor_col_values;
     if (id == 0) {
         std::cin >> floor_first_point.x >> floor_first_point.y >> floor_first_point.z;
         std::cin >> floor_second_point.x >> floor_second_point.y >> floor_second_point.z;
         std::cin >> floor_third_point.x >> floor_third_point.y >> floor_third_point.z;
         std::cin >> floor_fourth_point.x >> floor_fourth_point.y >> floor_fourth_point.z;
         std::cin >> temp;
-        std::cin >> scene_col_values.x >> scene_col_values.y >> scene_col_values.z;
+        std::cin >> floor_col_values.x >> floor_col_values.y >> floor_col_values.z;
         std::cin >> temp;
-        scene_col_values.x *= 255.0;
-        scene_col_values.y *= 255.0;
-        scene_col_values.z *= 255.0;
+        floor_col_values.x *= 255.0;
+        floor_col_values.y *= 255.0;
+        floor_col_values.z *= 255.0;
     }
 
     MPI_Bcast(&floor_first_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -674,9 +672,9 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&floor_fourth_point.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&floor_fourth_point.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&floor_fourth_point.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&scene_col_values.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&scene_col_values.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&scene_col_values.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_col_values.x, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_col_values.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&floor_col_values.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     int l_count;
     vec3 l_position;
@@ -706,7 +704,7 @@ int main(int argc, char *argv[]) {
     uchar4 *pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
 
     MPI_Barrier(MPI_COMM_WORLD);
-    create_scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, col_values, trigs);
+    create_scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, floor_col_values, trigs);
     create_hexahedron(trigs, h_radius, h_verticles, h_col_values);
     create_icosahedron(trigs, i_radius, i_verticles, i_col_values);
     create_dodecahedron(trigs, d_radius, d_verticles, d_col_values);
@@ -715,9 +713,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Image size: " << w << " " << h << "\n";
     std::cout << "Frames summ: " << frames_count << "\n";
 
-    double total_duration_time = 0;
+    double total_time = 0;
 
-    for (int i = 0; i < frames_count; i++) {
+    for (int i = id; i < frames_count; i++) {
         auto time_start = std::chrono::steady_clock::now();
         double t = i * 2.0 * M_PI / frames_count;
 
@@ -744,7 +742,7 @@ int main(int argc, char *argv[]) {
 
         auto end = std::chrono::steady_clock::now();
         double summ_time = std::chrono::duration_cast<std::chrono::microseconds>(end - time_start).count() / 1000;
-        total_duration_time += summ_time;
+        total_time += summ_time;
         std::cout << i + 1 << "/" << frames_count << "\t" << summ_time << "\t" << w * h * rays_sqrt * rays_sqrt << "\n";
 
         std::string iter = std::to_string(i);
@@ -760,6 +758,6 @@ int main(int argc, char *argv[]) {
     delete[] pixels;
     delete[] pixels_ssaa;
 
-    std::cout << "All time: " << total_duration_time << "\n";
+    std::cout << "All time: " << total_time << "\n";
     return 0;
 }
