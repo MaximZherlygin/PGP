@@ -505,7 +505,7 @@ int main(int argc, char *argv[]) {
     bool is_gpu = argc == 1 || arg == "--gpu";
 
     int numproc;
-    int id;
+    int id = 0;
 
     int frames_count;
     std::string path_to_frames;
@@ -598,6 +598,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &numproc);
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
     std::vector <triangle> trigs;
+
     if (id == 0) {
         std::cin >> h_verticles.x >> h_verticles.y >> h_verticles.z >> h_col_values.x >> h_col_values.y >> h_col_values.z >> h_radius;
         std::cin >> temp >> temp >> temp;
