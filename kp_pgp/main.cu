@@ -233,8 +233,8 @@ __global__ void gpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4*
         }
 }
 
-void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle,uchar4 *data, vec3 l_position, vec3 l_color,
-                triangle *trigs,int rays_sqrt) {
+void cpu_render(vec3 pc, vec3 pv, int w, int h, double angle, uchar4 *data, vec3 l_position, vec3 l_color,
+                triangle *trigs, int rays_sqrt) {
     // из примера с лекций
     double dw = 2.0 / (w - 1.0);
     double dh = 2.0 / (h - 1.0);
@@ -697,12 +697,16 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&l_color.y, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&l_color.z, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&recurse_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    int w_ssaa = w * rays_sqrt;
+    int h_ssaa = h * rays_sqrt;
+    MPI_Bcast(&w_ssaa, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&h_ssaa, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&rays_sqrt, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-
     triangle* trigs_arr = trigs.data();
-    uchar4 *pixels = new uchar4[w * h * rays_sqrt * rays_sqrt];
-    uchar4 *pixels_ssaa = new uchar4[w * h * rays_sqrt * rays_sqrt];
+    uchar4 *pixels_ssaa = new uchar4[w_ssaa * h_ssaa];
+    uchar4 *pixels = new uchar4[w_ssaa * h_ssaa];
 
     MPI_Barrier(MPI_COMM_WORLD);
     create_scene(floor_first_point, floor_second_point, floor_third_point, floor_fourth_point, floor_col_values, trigs);
@@ -736,9 +740,9 @@ int main(int argc, char *argv[]) {
 
         int p_size = trigs.size();
         if (!is_gpu) {
-            cpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, p_size, rays_sqrt);
+            cpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w_ssaa, h_ssaa, view_angle, l_position, l_color, p_size, rays_sqrt);
         } else {
-            gpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w * rays_sqrt, h * rays_sqrt, view_angle, l_position, l_color, p_size, rays_sqrt);
+            gpu_mode(pixels, pixels_ssaa, trigs_arr, p_c, p_v, w, h, w_ssaa, h_ssaa, view_angle, l_position, l_color, p_size, rays_sqrt);
         }
 
         auto end = std::chrono::steady_clock::now();
