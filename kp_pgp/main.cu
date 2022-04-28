@@ -700,7 +700,7 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&h_ssaa, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&rays_sqrt, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    triangle* trigs_arr = trigs.data();
+
     uchar4 *pixels_ssaa = new uchar4[w_ssaa * h_ssaa];
     uchar4 *pixels = new uchar4[w_ssaa * h_ssaa];
 
@@ -709,6 +709,8 @@ int main(int argc, char *argv[]) {
     create_hexahedron(trigs, h_radius, h_verticles, h_col_values);
     create_icosahedron(trigs, i_radius, i_verticles, i_col_values);
     create_dodecahedron(trigs, d_radius, d_verticles, d_col_values);
+
+    triangle* trigs_arr = trigs.data();
 
     std::cout << "Polygons count: " << trigs.size() << "\n";
     std::cout << "Image size: " << w << " " << h << "\n";
